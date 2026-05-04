@@ -12,115 +12,164 @@ pub struct FunctionInfo {
     pub name: &'static str,
     pub params: &'static str,
     pub description: &'static str,
+    pub example: &'static str,
+    pub category: &'static str,
 }
 
 pub fn list_functions() -> Vec<FunctionInfo> {
     vec![
+        // Trigonometric functions
         FunctionInfo {
             name: "sin",
             params: "x",
-            description: "Sine (radians)",
+            description: "Sine function (x in radians)",
+            example: "sin(pi/2) = 1",
+            category: "Trigonometry",
         },
         FunctionInfo {
             name: "cos",
             params: "x",
-            description: "Cosine (radians)",
+            description: "Cosine function (x in radians)",
+            example: "cos(0) = 1",
+            category: "Trigonometry",
         },
         FunctionInfo {
             name: "tan",
             params: "x",
-            description: "Tangent (radians)",
+            description: "Tangent function (x in radians)",
+            example: "tan(pi/4) = 1",
+            category: "Trigonometry",
         },
         FunctionInfo {
             name: "asin",
             params: "x",
-            description: "Arc sine",
+            description: "Arc sine (inverse sine), returns radians",
+            example: "asin(1) = 1.5708... (pi/2)",
+            category: "Trigonometry",
         },
         FunctionInfo {
             name: "acos",
             params: "x",
-            description: "Arc cosine",
+            description: "Arc cosine (inverse cosine), returns radians",
+            example: "acos(1) = 0",
+            category: "Trigonometry",
         },
         FunctionInfo {
             name: "atan",
             params: "x",
-            description: "Arc tangent",
+            description: "Arc tangent (inverse tangent), returns radians",
+            example: "atan(1) = 0.7854... (pi/4)",
+            category: "Trigonometry",
         },
+        // Math functions
         FunctionInfo {
             name: "sqrt",
             params: "x",
-            description: "Square root",
+            description: "Square root of x",
+            example: "sqrt(16) = 4",
+            category: "Math",
         },
         FunctionInfo {
             name: "ln",
             params: "x",
-            description: "Natural logarithm",
+            description: "Natural logarithm (base e)",
+            example: "ln(e) = 1",
+            category: "Math",
         },
         FunctionInfo {
             name: "log",
             params: "x",
             description: "Base-10 logarithm",
+            example: "log(100) = 2",
+            category: "Math",
         },
         FunctionInfo {
             name: "log10",
             params: "x",
-            description: "Base-10 logarithm",
+            description: "Base-10 logarithm (same as log)",
+            example: "log10(1000) = 3",
+            category: "Math",
         },
         FunctionInfo {
             name: "exp",
             params: "x",
-            description: "Exponential e^x",
+            description: "Exponential function e^x",
+            example: "exp(1) = 2.718... (e)",
+            category: "Math",
         },
         FunctionInfo {
             name: "abs",
             params: "x",
-            description: "Absolute value",
+            description: "Absolute value (magnitude without sign)",
+            example: "abs(-5) = 5",
+            category: "Math",
         },
+        // Rounding functions
         FunctionInfo {
             name: "floor",
             params: "x",
-            description: "Round down",
+            description: "Round down to nearest integer",
+            example: "floor(3.7) = 3",
+            category: "Rounding",
         },
         FunctionInfo {
             name: "ceil",
             params: "x",
-            description: "Round up",
+            description: "Round up to nearest integer",
+            example: "ceil(3.2) = 4",
+            category: "Rounding",
         },
         FunctionInfo {
             name: "round",
             params: "x",
-            description: "Round to nearest",
+            description: "Round to nearest integer",
+            example: "round(3.5) = 4",
+            category: "Rounding",
         },
+        // Comparison functions
         FunctionInfo {
             name: "min",
             params: "a, b",
-            description: "Minimum of two",
+            description: "Minimum of two values",
+            example: "min(5, 3) = 3",
+            category: "Comparison",
         },
         FunctionInfo {
             name: "max",
             params: "a, b",
-            description: "Maximum of two",
+            description: "Maximum of two values",
+            example: "max(5, 3) = 5",
+            category: "Comparison",
         },
+        // Power function
         FunctionInfo {
             name: "pow",
             params: "base, exp",
-            description: "Power base^exp",
+            description: "Raise base to the power of exp",
+            example: "pow(2, 3) = 8 (same as 2^3)",
+            category: "Math",
         },
         // Integration functions
         FunctionInfo {
             name: "trapz",
             params: "f, a, b, n",
-            description: "Integral by trapezoidal rule (n intervals)",
+            description: "Numerical integration using trapezoidal rule",
+            example: "trapz(x^2, 0, 1, 100) approximates integral of x² from 0 to 1",
+            category: "Integration",
         },
         FunctionInfo {
             name: "simpson",
             params: "f, a, b, n",
-            description: "Integral by Simpson's rule (n intervals, n even)",
+            description: "Numerical integration using Simpson's rule (n must be even)",
+            example: "simpson(x^2, 0, 1, 100) = 0.333... (exact for quadratics)",
+            category: "Integration",
         },
         FunctionInfo {
             name: "rkf45",
             params: "f, a, b, [tol], [max_steps]",
-            description: "Integral by RKF45 adaptive quadrature",
+            description: "Adaptive integration using Runge-Kutta-Fehlberg method",
+            example: "rkf45(sin(x), 0, pi) = 2.0 (high precision)",
+            category: "Integration",
         },
     ]
 }
@@ -201,4 +250,22 @@ pub fn function_names() -> Vec<&'static str> {
         "sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "log10", "exp", "abs",
         "floor", "ceil", "round", "min", "max", "pow", "trapz", "simpson", "rkf45",
     ]
+}
+
+/// Get detailed info for a specific function
+pub fn get_function_info(name: &str) -> Option<FunctionInfo> {
+    list_functions().into_iter().find(|f| f.name == name)
+}
+
+/// Get functions by category
+pub fn get_functions_by_category(category: &str) -> Vec<FunctionInfo> {
+    list_functions()
+        .into_iter()
+        .filter(|f| f.category.eq_ignore_ascii_case(category))
+        .collect()
+}
+
+/// Get all categories
+pub fn get_categories() -> Vec<&'static str> {
+    vec!["Trigonometry", "Math", "Rounding", "Comparison", "Integration"]
 }

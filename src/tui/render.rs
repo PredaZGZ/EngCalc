@@ -483,38 +483,48 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
 
 fn render_functions_overlay(f: &mut Frame, app: &mut App) {
     let area = f.area();
-    let overlay_w = 60.min(area.width);
-    let overlay_h = 24.min(area.height);
+    // Make overlay wider to accommodate details panel
+    let overlay_w = 80.min(area.width);
+    let overlay_h = 26.min(area.height);
     let overlay_x = (area.width - overlay_w) / 2;
     let overlay_y = (area.height - overlay_h) / 2;
     let overlay = Rect::new(overlay_x, overlay_y, overlay_w, overlay_h);
 
-    let filtered = app.filtered_functions();
-    let visible_count = 16usize; // Number of items visible at once
+    // Clear the area behind the overlay
+    f.render_widget(Clear, overlay);
 
-    let mut lines = Vec::new();
+    // Split overlay into two columns: function list and details
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .split(overlay);
+
+    let filtered = app.filtered_functions();
+    let visible_count = 14usize;
+
+    // Left column: Function list
+    let mut list_lines = Vec::new();
 
     // Search bar
     let search_bar = Line::from(vec![
         Span::styled(" / ", theme::accent()),
         Span::styled(&app.funcs_search, theme::bright()),
         if app.funcs_search.is_empty() {
-            Span::styled("type to filter...", theme::dim())
+            Span::styled("filter...", theme::dim())
         } else {
             Span::default()
         },
     ]);
-    lines.push(search_bar);
-    lines.push(Line::from(""));
+    list_lines.push(search_bar);
+    list_lines.push(Line::from(""));
 
     // Results
     if filtered.is_empty() {
-        lines.push(Line::from(vec![Span::styled(
+        list_lines.push(Line::from(vec![Span::styled(
             "  (no results)",
             theme::dim(),
         )]));
     } else {
-        // Calculate window start based on selection
         let total = filtered.len();
         let selected = app.funcs_selected;
         let window_start = if total <= visible_count {
@@ -529,9 +539,8 @@ fn render_functions_overlay(f: &mut Frame, app: &mut App) {
 
         let window_end = (window_start + visible_count).min(total);
 
-        // Show scroll indicator if needed
         if window_start > 0 {
-            lines.push(Line::from(vec![Span::styled("  ▲ ...", theme::dim())]));
+            list_lines.push(Line::from(vec![Span::styled("  ▲ ...", theme::dim())]));
         }
 
         for i in window_start..window_end {
@@ -540,64 +549,129 @@ fn render_functions_overlay(f: &mut Frame, app: &mut App) {
             let arrow = if is_selected { "▸ " } else { "  " };
 
             if is_selected {
-                lines.push(Line::from(vec![
+                list_lines.push(Line::from(vec![
                     Span::styled(arrow, theme::accent()),
                     Span::styled(
-                        format!("{:<8}", func.name),
+                        format!("{}", func.name),
                         Style::default()
                             .fg(Color::Rgb(255, 105, 180))
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(format!("({})", func.params), theme::dim()),
-                    Span::styled("  — ", theme::dim()),
-                    Span::styled(func.description, theme::dim()),
                 ]));
             } else {
-                lines.push(Line::from(vec![
+                list_lines.push(Line::from(vec![
                     Span::styled(arrow, theme::dim()),
                     Span::styled(
-                        format!("{:<8}", func.name),
+                        format!("{}", func.name),
                         Style::default().fg(Color::Rgb(255, 105, 180)),
                     ),
                     Span::styled(format!("({})", func.params), theme::dim()),
-                    Span::styled("  — ", theme::dim()),
-                    Span::styled(func.description, theme::dim()),
                 ]));
             }
         }
 
         if window_end < total {
-            lines.push(Line::from(vec![Span::styled(
+            list_lines.push(Line::from(vec![Span::styled(
                 format!("  ▼ ... {} more", total - window_end),
                 theme::dim(),
             )]));
         }
     }
 
-    lines.push(Line::from(""));
-    lines.push(Line::from(vec![
-        Span::styled(" Enter", theme::accent()),
-        Span::styled(" insert  ", theme::dim()),
-        Span::styled(" ↑↓", theme::accent()),
-        Span::styled(" nav  ", theme::dim()),
-        Span::styled(" Esc", theme::accent()),
-        Span::styled(" close  ", theme::dim()),
-        Span::styled(" /", theme::accent()),
-        Span::styled(" search", theme::dim()),
-    ]));
-
-    // Clear the area behind the overlay
-    f.render_widget(Clear, overlay);
-
-    let block = Block::default()
-        .title(" functions [F4] ")
+    // Left block
+    let left_block = Block::default()
+        .title(" Functions [F4] ")
         .title_style(theme::accent())
         .borders(Borders::ALL)
         .border_style(theme::accent())
         .style(Style::default().bg(Color::Black));
 
-    let para = Paragraph::new(Text::from(lines)).block(block);
-    f.render_widget(para, overlay);
+    let left_para = Paragraph::new(Text::from(list_lines)).block(left_block);
+    f.render_widget(left_para, columns[0]);
+
+    // Right column: Function details
+    let mut detail_lines = Vec::new();
+
+    if !filtered.is_empty() && app.funcs_selected < filtered.len() {
+        let func = &filtered[app.funcs_selected];
+
+        // Function name and category
+        detail_lines.push(Line::from(vec![
+            Span::styled(func.name, Style::default().fg(Color::Rgb(255, 105, 180)).add_modifier(Modifier::BOLD)),
+        ]));
+        detail_lines.push(Line::from(vec![
+            Span::styled(format!("Category: "), theme::dim()),
+            Span::styled(func.category, theme::accent()),
+        ]));
+        detail_lines.push(Line::from(""));
+
+        // Parameters
+        detail_lines.push(Line::from(vec![
+            Span::styled("Parameters:", Style::default().add_modifier(Modifier::UNDERLINED)),
+        ]));
+        detail_lines.push(Line::from(vec![
+            Span::styled(format!("  {}", func.params), theme::bright()),
+        ]));
+        detail_lines.push(Line::from(""));
+
+        // Description
+        detail_lines.push(Line::from(vec![
+            Span::styled("Description:", Style::default().add_modifier(Modifier::UNDERLINED)),
+        ]));
+        // Wrap description if needed
+        let desc = func.description;
+        detail_lines.push(Line::from(vec![
+            Span::styled(format!("  {}", desc), theme::bright()),
+        ]));
+        detail_lines.push(Line::from(""));
+
+        // Example
+        detail_lines.push(Line::from(vec![
+            Span::styled("Example:", Style::default().add_modifier(Modifier::UNDERLINED)),
+        ]));
+        detail_lines.push(Line::from(vec![
+            Span::styled(format!("  {}", func.example), Style::default().fg(Color::Rgb(180, 220, 150))),
+        ]));
+    } else {
+        detail_lines.push(Line::from(vec![
+            Span::styled("Select a function", theme::dim()),
+        ]));
+        detail_lines.push(Line::from(""));
+        detail_lines.push(Line::from(vec![
+            Span::styled("Details will appear here", theme::dim()),
+        ]));
+    }
+
+    // Right block
+    let right_block = Block::default()
+        .title(" Details ")
+        .title_style(theme::accent())
+        .borders(Borders::ALL)
+        .border_style(theme::accent())
+        .style(Style::default().bg(Color::Black));
+
+    let right_para = Paragraph::new(Text::from(detail_lines)).block(right_block);
+    f.render_widget(right_para, columns[1]);
+
+    // Footer with instructions (rendered over the bottom of overlay)
+    let footer_area = Rect::new(
+        overlay.x,
+        overlay.y + overlay.height - 2,
+        overlay.width,
+        1,
+    );
+    let footer = Paragraph::new(Line::from(vec![
+        Span::styled("Enter", theme::accent()),
+        Span::styled("=insert ", theme::dim()),
+        Span::styled("↑↓", theme::accent()),
+        Span::styled("=nav ", theme::dim()),
+        Span::styled("Esc", theme::accent()),
+        Span::styled("=close ", theme::dim()),
+        Span::styled("/", theme::accent()),
+        Span::styled("=search", theme::dim()),
+    ]));
+    f.render_widget(footer, footer_area);
 }
 
 fn render_help_overlay(f: &mut Frame, _app: &App) {
