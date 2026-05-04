@@ -39,11 +39,26 @@ fn render_title(f: &mut Frame, _rects: &layout::AppLayout, _app: &App) {
 }
 
 fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
+    let content = app.input.content();
+    let cursor = app.input.cursor_pos();
+
     let prompt_str = "> ";
-    let input_text = Line::from(vec![
-        Span::styled(prompt_str, theme::prompt()),
-        Span::styled(app.input.content(), theme::bright()),
-    ]);
+    let mut spans = vec![Span::styled(prompt_str, theme::prompt())];
+
+    // Tokenize input to colorize constants and variables
+    let tokens = tokenize_input(&content, &app.user_vars);
+    for (token, is_const, is_var) in &tokens {
+        let style = if *is_const {
+            Style::default().fg(Color::Rgb(255, 105, 180))
+        } else if *is_var {
+            Style::default().fg(theme::RESULT)
+        } else {
+            theme::bright()
+        };
+        spans.push(Span::styled(token.clone(), style));
+    }
+
+    let input_text = Line::from(spans);
 
     let input_block = Block::default()
         .title(Line::from(vec![Span::styled(
@@ -56,12 +71,65 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     let para = Paragraph::new(input_text).block(input_block);
     f.render_widget(para, rects.input_area);
 
+    // Calculate cursor position from token widths
+    let mut char_count = 0usize;
+    for (token, _, _) in &tokens {
+        if char_count + token.len() >= cursor {
+            break;
+        }
+        char_count += token.len();
+    }
     let prompt_width = 2u16;
-    let cursor_x = rects.input_area.x + 1 + prompt_width + app.input.cursor_pos() as u16;
+    let cursor_x = rects.input_area.x + 1 + prompt_width + char_count as u16;
     let cursor_y = rects.input_area.y + 1;
     if cursor_x < rects.input_area.x + rects.input_area.width - 1 {
         f.set_cursor_position(Position::new(cursor_x, cursor_y));
     }
+}
+
+/// Tokenize input into words and non-word segments.
+/// Returns (text, is_constant, is_variable).
+fn tokenize_input<'a>(
+    input: &'a str,
+    vars: &std::collections::HashMap<String, crate::core::value::Value>,
+) -> Vec<(String, bool, bool)> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut in_word = false;
+
+    for ch in input.chars() {
+        let is_word_char = ch.is_alphanumeric() || ch == '_';
+        if is_word_char != in_word {
+            if !current.is_empty() {
+                let (is_const, is_var) = classify_word(&current, vars);
+                tokens.push((current.clone(), is_const, is_var));
+                current.clear();
+            }
+            in_word = is_word_char;
+        }
+        current.push(ch);
+    }
+    if !current.is_empty() {
+        let (is_const, is_var) = classify_word(&current, vars);
+        tokens.push((current, is_const, is_var));
+    }
+
+    tokens
+}
+
+fn classify_word(
+    word: &str,
+    vars: &std::collections::HashMap<String, crate::core::value::Value>,
+) -> (bool, bool) {
+    for c in crate::core::constants::list() {
+        if c.name == word {
+            return (true, false);
+        }
+    }
+    if vars.contains_key(word) {
+        return (false, true);
+    }
+    (false, false)
 }
 
 fn render_result(f: &mut Frame, rects: &layout::AppLayout, app: &App) {

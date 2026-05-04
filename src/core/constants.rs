@@ -80,26 +80,16 @@ pub fn list() -> Vec<ConstantInfo> {
 }
 
 pub fn search(query: &str) -> Vec<ConstantInfo> {
+    if query.is_empty() {
+        return constants_data();
+    }
     let q = query.to_lowercase();
-    let results: Vec<ConstantInfo> = constants_data()
+    constants_data()
         .into_iter()
         .filter(|c| {
             c.name.to_lowercase().contains(&q)
                 || c.description.to_lowercase().contains(&q)
                 || c.units.to_lowercase().contains(&q)
-        })
-        .collect();
-    results
-        .into_iter()
-        .map(|mut c| {
-            c.name = {
-                let all = constants_data();
-                all.iter()
-                    .find(|x| x.name == c.name)
-                    .map(|x| x.name)
-                    .unwrap_or(c.name)
-            };
-            c
         })
         .collect()
 }
