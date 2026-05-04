@@ -7,8 +7,8 @@ fn eval(input: &str) -> Result<String, String> {
     let mut env = Environment::new();
 
     // Pre-populate with constants
-    for (name, _desc, val) in crate::core::constants::list() {
-        env.set(name, crate::core::value::Value::new(val));
+    for c in crate::core::constants::list() {
+        env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
 
     match ast.eval(&env) {
@@ -21,8 +21,8 @@ fn eval_with_env(input: &str) -> Result<(String, Environment), String> {
     let ast = parser::parse(input).map_err(|e| e.to_string())?;
     let mut env = Environment::new();
 
-    for (name, _desc, val) in crate::core::constants::list() {
-        env.set(name, crate::core::value::Value::new(val));
+    for c in crate::core::constants::list() {
+        env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
 
     match ast.eval(&env) {
@@ -241,8 +241,8 @@ fn test_variable_chain() {
 fn test_unit_km_to_m() {
     let ast = parser::parse("10 km in m").unwrap();
     let mut env = Environment::new();
-    for (name, _desc, val) in crate::core::constants::list() {
-        env.set(name, crate::core::value::Value::new(val));
+    for c in crate::core::constants::list() {
+        env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
     let val = ast.eval(&env).unwrap();
     assert_eq!(formatter::format_value(&val), "10000");
@@ -252,8 +252,8 @@ fn test_unit_km_to_m() {
 fn test_unit_h_to_s() {
     let ast = parser::parse("1 h in s").unwrap();
     let mut env = Environment::new();
-    for (name, _desc, val) in crate::core::constants::list() {
-        env.set(name, crate::core::value::Value::new(val));
+    for c in crate::core::constants::list() {
+        env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
     let val = ast.eval(&env).unwrap();
     assert_eq!(formatter::format_value(&val), "3600");
@@ -263,8 +263,8 @@ fn test_unit_h_to_s() {
 fn test_unit_bar_to_pa() {
     let ast = parser::parse("5 bar in Pa").unwrap();
     let mut env = Environment::new();
-    for (name, _desc, val) in crate::core::constants::list() {
-        env.set(name, crate::core::value::Value::new(val));
+    for c in crate::core::constants::list() {
+        env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
     let val = ast.eval(&env).unwrap();
     assert_eq!(formatter::format_value(&val), "500000");

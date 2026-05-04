@@ -196,37 +196,88 @@ fn render_footer(f: &mut Frame, rects: &layout::AppLayout) {
     f.render_widget(footer, rects.footer_area);
 }
 
-fn render_consts_overlay(f: &mut Frame, _app: &App) {
+fn render_consts_overlay(f: &mut Frame, app: &mut App) {
     let area = f.area();
-    let overlay_w = 50.min(area.width);
-    let overlay_h = 20.min(area.height);
+    let overlay_w = 60.min(area.width);
+    let overlay_h = 22.min(area.height);
     let overlay_x = (area.width - overlay_w) / 2;
     let overlay_y = (area.height - overlay_h) / 2;
     let overlay = Rect::new(overlay_x, overlay_y, overlay_w, overlay_h);
 
+    let filtered = crate::core::constants::search(&app.consts_search);
+
     let mut lines = Vec::new();
-    lines.push(Line::from(vec![Span::styled(
-        " Constants",
-        Style::default()
-            .fg(theme::ACCENT)
-            .add_modifier(Modifier::BOLD),
-    )]));
+
+    // Search bar
+    let search_bar = Line::from(vec![
+        Span::styled(" / ", theme::accent()),
+        Span::styled(&app.consts_search, theme::bright()),
+        if app.consts_search.is_empty() {
+            Span::styled("type to filter...", theme::dim())
+        } else {
+            Span::default()
+        },
+    ]);
+    lines.push(search_bar);
     lines.push(Line::from(""));
 
-    for (name, _desc, val) in crate::core::constants::list() {
-        let v = crate::core::value::Value::new(val);
-        let display = crate::core::formatter::format_value(&v);
-        lines.push(Line::from(vec![
-            Span::styled(format!("  {:>4}  ≈ ", name), theme::accent_dim()),
-            Span::styled(display, theme::bright()),
-        ]));
+    // Results
+    if filtered.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            "  (no results)",
+            theme::dim(),
+        )]));
+    } else {
+        let visible = filtered.iter().take(16);
+        for (i, c) in visible.enumerate() {
+            let is_selected = i == app.consts_selected;
+            let v = crate::core::value::Value::new(c.value);
+            let display = crate::core::formatter::format_value(&v);
+            let arrow = if is_selected { "▸ " } else { "  " };
+
+            if is_selected {
+                lines.push(Line::from(vec![
+                    Span::styled(arrow, theme::accent()),
+                    Span::styled(
+                        format!("{:<5} ", c.name),
+                        theme::accent().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(display, theme::bright()),
+                    Span::styled("  ", theme::DIM),
+                    Span::styled(c.description, theme::dim()),
+                    Span::styled(format!("  [{}]", c.units), theme::DIM),
+                ]));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled(arrow, theme::dim()),
+                    Span::styled(format!("{:<5} ", c.name), theme::accent_dim()),
+                    Span::styled(display, Style::default().fg(Color::Gray)),
+                    Span::styled("  ", theme::DIM),
+                    Span::styled(c.description, theme::dim()),
+                    Span::styled(format!("  [{}]", c.units), theme::DIM),
+                ]));
+            }
+        }
+
+        if filtered.len() > 16 {
+            lines.push(Line::from(vec![Span::styled(
+                format!("  ... and {} more", filtered.len() - 16),
+                theme::dim(),
+            )]));
+        }
     }
 
     lines.push(Line::from(""));
-    lines.push(Line::from(vec![Span::styled(
-        "  press F2 to close",
-        theme::dim(),
-    )]));
+    lines.push(Line::from(vec![
+        Span::styled(" Enter", theme::accent()),
+        Span::styled(" insert  ", theme::dim()),
+        Span::styled(" ↑↓", theme::accent()),
+        Span::styled(" nav  ", theme::dim()),
+        Span::styled(" Esc", theme::accent()),
+        Span::styled(" close  ", theme::dim()),
+        Span::styled(" /", theme::accent()),
+        Span::styled(" search", theme::dim()),
+    ]));
 
     let block = Block::default()
         .title(" constants [F2] ")

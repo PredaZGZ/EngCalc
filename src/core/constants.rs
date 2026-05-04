@@ -1,46 +1,105 @@
 use crate::core::value::Value;
 use std::collections::HashMap;
 
-fn constants() -> HashMap<&'static str, f64> {
+pub struct ConstantInfo {
+    pub name: &'static str,
+    pub value: f64,
+    pub description: &'static str,
+    pub units: &'static str,
+}
+
+fn constants_data() -> Vec<ConstantInfo> {
+    vec![
+        ConstantInfo {
+            name: "pi",
+            value: std::f64::consts::PI,
+            description: "Circle constant",
+            units: "dimensionless",
+        },
+        ConstantInfo {
+            name: "e",
+            value: std::f64::consts::E,
+            description: "Euler's number",
+            units: "dimensionless",
+        },
+        ConstantInfo {
+            name: "tau",
+            value: std::f64::consts::TAU,
+            description: "τ = 2π",
+            units: "dimensionless",
+        },
+        ConstantInfo {
+            name: "phi",
+            value: 1.6180339887498949,
+            description: "Golden ratio",
+            units: "dimensionless",
+        },
+        ConstantInfo {
+            name: "R",
+            value: 8.314462618,
+            description: "Ideal gas constant",
+            units: "J/(mol·K)",
+        },
+        ConstantInfo {
+            name: "g",
+            value: 9.80665,
+            description: "Gravitational accel.",
+            units: "m/s²",
+        },
+        ConstantInfo {
+            name: "Na",
+            value: 6.02214076e23,
+            description: "Avogadro's number",
+            units: "mol⁻¹",
+        },
+        ConstantInfo {
+            name: "atm",
+            value: 101325.0,
+            description: "Standard atmosphere",
+            units: "Pa",
+        },
+    ]
+}
+
+fn constants_map() -> HashMap<&'static str, f64> {
     let mut m = HashMap::new();
-
-    m.insert("pi", std::f64::consts::PI);
-    m.insert("e", std::f64::consts::E);
-    m.insert("tau", std::f64::consts::TAU);
-    m.insert("phi", 1.6180339887498949);
-
-    // Engineering constants
-    m.insert("R", 8.314462618);
-    m.insert("g", 9.80665);
-    m.insert("Na", 6.02214076e23);
-    m.insert("atm", 101325.0);
-
+    for c in constants_data() {
+        m.insert(c.name, c.value);
+    }
     m
 }
 
 pub fn get(name: &str) -> Option<Value> {
-    constants().get(name).map(|&v| Value::new(v))
+    constants_map().get(name).map(|&v| Value::new(v))
 }
 
-pub fn list() -> Vec<(String, String, f64)> {
-    let mut items: Vec<(String, String, f64)> = constants()
-        .iter()
-        .map(|(k, v)| (k.to_string(), description(k), *v))
-        .collect();
-    items.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+pub fn list() -> Vec<ConstantInfo> {
+    let mut items = constants_data();
+    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     items
 }
 
-fn description(name: &str) -> String {
-    match name {
-        "pi" => "π = 3.14159...".to_string(),
-        "e" => "Euler's number".to_string(),
-        "tau" => "τ = 2π".to_string(),
-        "phi" => "Golden ratio".to_string(),
-        "R" => "Ideal gas constant".to_string(),
-        "g" => "Gravitational acceleration".to_string(),
-        "Na" => "Avogadro's number".to_string(),
-        "atm" => "Standard atmosphere (Pa)".to_string(),
-        _ => String::new(),
-    }
+pub fn search(query: &str) -> Vec<ConstantInfo> {
+    let q = query.to_lowercase();
+    let results: Vec<ConstantInfo> = constants_data()
+        .into_iter()
+        .filter(|c| {
+            c.name.to_lowercase().contains(&q)
+                || c.description.to_lowercase().contains(&q)
+                || c.units.to_lowercase().contains(&q)
+        })
+        .collect();
+    results
+        .into_iter()
+        .map(|mut c| {
+            c.name = {
+                let all = constants_data();
+                all.iter()
+                    .find(|x| x.name == c.name)
+                    .map(|x| x.name)
+                    .unwrap_or(c.name)
+            };
+            c
+        })
+        .collect()
 }

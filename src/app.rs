@@ -17,6 +17,8 @@ pub struct App {
     pub is_command_mode: bool,
     pub show_consts: bool,
     pub show_help: bool,
+    pub consts_search: String,
+    pub consts_selected: usize,
 }
 
 impl App {
@@ -35,28 +37,38 @@ impl App {
             is_command_mode: false,
             show_consts: false,
             show_help: false,
+            consts_search: String::new(),
+            consts_selected: 0,
         }
     }
 
     pub fn handle_action(&mut self, action: Action) {
         if matches!(action, Action::ShowHelp) {
             self.show_help = !self.show_help;
+            self.show_consts = false;
             return;
         }
 
         if matches!(action, Action::ShowConsts) {
             self.show_consts = !self.show_consts;
+            self.show_help = false;
+            if self.show_consts {
+                self.consts_search.clear();
+                self.consts_selected = 0;
+            }
             return;
         }
 
-        if self.show_help || self.show_consts {
-            if matches!(action, Action::Quit | Action::ShowHelp | Action::ShowConsts) {
-                self.show_help = false;
-                self.show_consts = false;
-            }
+        if self.show_consts {
+            self.handle_consts_action(action);
+            return;
+        }
+
+        if self.show_help {
             if matches!(action, Action::Quit) {
                 self.running = false;
             }
+            self.show_help = false;
             return;
         }
 
@@ -333,9 +345,9 @@ impl App {
 
         let mut suggestions: Vec<String> = Vec::new();
 
-        for (name, _desc, _) in crate::core::constants::list() {
-            if name.starts_with(prefix) && name.len() > prefix.len() {
-                suggestions.push(name);
+        for c in crate::core::constants::list() {
+            if c.name.starts_with(prefix) && c.name.len() > prefix.len() {
+                suggestions.push(c.name.to_string());
             }
         }
 
@@ -385,6 +397,59 @@ impl App {
         self.input.clear();
         self.is_command_mode = false;
         self.history_index = None;
+    }
+
+    fn handle_consts_action(&mut self, action: Action) {
+        match action {
+            Action::Quit | Action::ClearInput | Action::ClearScreen => {
+                self.show_consts = false;
+                self.consts_search.clear();
+                self.consts_selected = 0;
+            }
+            Action::HistoryUp => {
+                let filtered = crate::core::constants::search(&self.consts_search);
+                if !filtered.is_empty() && self.consts_selected > 0 {
+                    self.consts_selected -= 1;
+                }
+            }
+            Action::HistoryDown => {
+                let filtered = crate::core::constants::search(&self.consts_search);
+                if !filtered.is_empty() && self.consts_selected + 1 < filtered.len() {
+                    self.consts_selected += 1;
+                }
+            }
+            Action::Eval | Action::ShowConsts => {
+                let filtered = crate::core::constants::search(&self.consts_search);
+                if !filtered.is_empty() && self.consts_selected < filtered.len() {
+                    let selected = &filtered[self.consts_selected];
+                    let insert_at = self.input.cursor_pos();
+                    let current = self.input.content();
+                    let before: String = current.chars().take(insert_at).collect();
+                    let after: String = current.chars().skip(insert_at).collect();
+                    self.input
+                        .set_content(format!("{}{}{}", before, selected.name, after));
+                    self.input.set_cursor_pos(insert_at + selected.name.len());
+                }
+                self.show_consts = false;
+                self.consts_search.clear();
+                self.consts_selected = 0;
+            }
+            Action::InputChar(c) => {
+                self.consts_search.push(c);
+                self.consts_selected = 0;
+            }
+            Action::DeleteBackward => {
+                self.consts_search.pop();
+                self.consts_selected = 0;
+            }
+            Action::DeleteForward => {
+                if !self.consts_search.is_empty() {
+                    self.consts_search.remove(self.consts_search.len() - 1);
+                    self.consts_selected = 0;
+                }
+            }
+            _ => {}
+        }
     }
 }
 
