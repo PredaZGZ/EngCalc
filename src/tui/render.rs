@@ -155,14 +155,7 @@ fn render_vars(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     vars.sort_by(|a, b| a.0.cmp(b.0));
 
     if vars.is_empty() {
-        lines.push(Line::from(vec![Span::styled(
-            "  (no variables yet)",
-            theme::dim(),
-        )]));
-        lines.push(Line::from(vec![
-            Span::styled("  try: ", theme::dim()),
-            Span::styled("x = 42", theme::accent_dim()),
-        ]));
+        lines.push(Line::from(vec![Span::styled("  (empty)", theme::dim())]));
     } else {
         let max_name_len = vars.iter().map(|(n, _)| n.len()).max().unwrap_or(4).min(12);
         for (name, value) in &vars {
@@ -194,7 +187,9 @@ fn render_footer(f: &mut Frame, rects: &layout::AppLayout) {
         Span::styled(" F2 ", Style::default().fg(theme::ACCENT)),
         Span::styled("consts  ", theme::DIM),
         Span::styled(" Tab ", Style::default().fg(theme::ACCENT)),
-        Span::styled("complete", theme::DIM),
+        Span::styled("complete  ", theme::DIM),
+        Span::styled(" F3 ", Style::default().fg(theme::ACCENT)),
+        Span::styled("reset", theme::DIM),
     ]);
 
     let footer = Paragraph::new(footer_text).style(theme::dim());
@@ -306,6 +301,10 @@ fn render_help_overlay(f: &mut Frame, _app: &App) {
         Line::from(vec![
             Span::styled("  F2", theme::accent_dim()),
             Span::styled("     Show constants", theme::bright()),
+        ]),
+        Line::from(vec![
+            Span::styled("  F3", theme::accent_dim()),
+            Span::styled("     Reset (clear all)", theme::bright()),
         ]),
         Line::from(""),
         Line::from(vec![Span::styled("  Commands:", theme::accent_dim())]),

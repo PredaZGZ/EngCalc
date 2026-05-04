@@ -74,6 +74,16 @@ impl App {
                 self.input.clear();
                 self.history_index = None;
             }
+            Action::ClearAll => {
+                self.history.clear();
+                let _ = self.history.save();
+                self.user_vars.clear();
+                self.env = Environment::new();
+                self.input.clear();
+                self.history_index = None;
+                self.last_result = None;
+                self.last_error = None;
+            }
             Action::HistoryUp => {
                 self.history_up();
             }
