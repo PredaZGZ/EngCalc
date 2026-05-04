@@ -1,4 +1,4 @@
-use crate::core::env::Environment;
+use crate::core::env::{Environment, UserFunction};
 use crate::core::formatter;
 use crate::core::parser;
 
@@ -408,5 +408,114 @@ fn test_newtons_equivalence() {
         result.contains("1") && (result.contains("kg") || result.contains("m")),
         "Expected conversion to kg·m/s², got '{}'",
         result
+    );
+}
+
+#[test]
+fn test_user_function_single_param() {
+    // Define f(x) = x^2 + 1, then call f(5)
+    let mut env = Environment::new();
+    use crate::core::ast::{BinaryOperator, Expr};
+    use crate::core::env::UserFunction;
+
+    // f(x) = x^2 + 1
+    let func = UserFunction {
+        name: "f".to_string(),
+        params: vec!["x".to_string()],
+        body: Expr::BinaryOp {
+            op: BinaryOperator::Add,
+            left: Box::new(Expr::BinaryOp {
+                op: BinaryOperator::Pow,
+                left: Box::new(Expr::Identifier("x".to_string())),
+                right: Box::new(Expr::Number(2.0)),
+            }),
+            right: Box::new(Expr::Number(1.0)),
+        },
+    };
+    env.set_function(func);
+
+    // Call f(5)
+    let call = Expr::FunctionCall {
+        name: "f".to_string(),
+        args: vec![Expr::Number(5.0)],
+    };
+
+    let result = call.eval(&env).unwrap();
+    assert!(
+        (result.number - 26.0).abs() < 1e-10,
+        "Expected 26, got {}",
+        result.number
+    );
+}
+
+#[test]
+fn test_user_function_two_params() {
+    // Define add(a, b) = a + b
+    let mut env = Environment::new();
+    use crate::core::ast::{BinaryOperator, Expr};
+    use crate::core::env::UserFunction;
+
+    let func = UserFunction {
+        name: "add".to_string(),
+        params: vec!["a".to_string(), "b".to_string()],
+        body: Expr::BinaryOp {
+            op: BinaryOperator::Add,
+            left: Box::new(Expr::Identifier("a".to_string())),
+            right: Box::new(Expr::Identifier("b".to_string())),
+        },
+    };
+    env.set_function(func);
+
+    // Call add(3, 4)
+    let call = Expr::FunctionCall {
+        name: "add".to_string(),
+        args: vec![Expr::Number(3.0), Expr::Number(4.0)],
+    };
+
+    let result = call.eval(&env).unwrap();
+    assert!(
+        (result.number - 7.0).abs() < 1e-10,
+        "Expected 7, got {}",
+        result.number
+    );
+}
+
+#[test]
+fn test_user_function_uses_constants() {
+    // f(x) = pi * x
+    let mut env = Environment::new();
+    use crate::core::ast::{BinaryOperator, Expr};
+    use crate::core::env::UserFunction;
+
+    for c in crate::core::constants::list() {
+        env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
+    }
+
+    let func = UserFunction {
+        name: "circle_area".to_string(),
+        params: vec!["r".to_string()],
+        body: Expr::BinaryOp {
+            op: BinaryOperator::Mul,
+            left: Box::new(Expr::Identifier("pi".to_string())),
+            right: Box::new(Expr::BinaryOp {
+                op: BinaryOperator::Pow,
+                left: Box::new(Expr::Identifier("r".to_string())),
+                right: Box::new(Expr::Number(2.0)),
+            }),
+        },
+    };
+    env.set_function(func);
+
+    // Call circle_area(1)
+    let call = Expr::FunctionCall {
+        name: "circle_area".to_string(),
+        args: vec![Expr::Number(1.0)],
+    };
+
+    let result = call.eval(&env).unwrap();
+    assert!(
+        (result.number - std::f64::consts::PI).abs() < 1e-10,
+        "Expected pi, got {}",
+        result.number
     );
 }

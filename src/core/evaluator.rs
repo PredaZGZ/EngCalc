@@ -1,5 +1,5 @@
 use crate::core::ast::*;
-use crate::core::env::Environment;
+use crate::core::env::{Environment, UserFunction};
 use crate::core::functions;
 use crate::core::units::{self, CompoundUnit};
 use crate::core::value::Value;
@@ -68,6 +68,12 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
         }
 
         Expr::FunctionCall { name, args } => {
+            // First check for user-defined functions
+            if let Some(func) = env.get_function(name).cloned() {
+                return eval_user_function(&func, args, env);
+            }
+
+            // Built-in functions
             let values: Result<Vec<Value>, EvalError> =
                 args.iter().map(|a| evaluate(a, env)).collect();
             let values = values?;
@@ -138,7 +144,48 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
                 Err(EvalError::UnknownUnit { unit: unit.clone() })
             }
         }
+
+        Expr::FunctionDef { name, .. } => {
+            // Function definitions are handled at a higher level (app.rs)
+            // If we encounter one here, it's an error
+            Err(EvalError::UnknownFunction { name: name.clone() })
+        }
     }
+}
+
+fn eval_user_function(
+    func: &UserFunction,
+    args: &[Expr],
+    env: &Environment,
+) -> Result<Value, EvalError> {
+    // Check argument count
+    if args.len() != func.params.len() {
+        return Err(EvalError::ArgCount {
+            name: func.name.clone(),
+            expected: func.params.len(),
+            got: args.len(),
+        });
+    }
+
+    // Evaluate arguments
+    let arg_values: Result<Vec<Value>, EvalError> = args.iter().map(|a| evaluate(a, env)).collect();
+    let arg_values = arg_values?;
+
+    // Create local environment with parameters bound
+    let mut local_env = Environment::new();
+
+    // Copy existing variables (for closure-like behavior)
+    for (name, value) in env.iter() {
+        local_env.set(name.clone(), value.clone());
+    }
+
+    // Bind parameters
+    for (param, value) in func.params.iter().zip(arg_values.iter()) {
+        local_env.set(param.clone(), value.clone());
+    }
+
+    // Evaluate function body
+    evaluate(&func.body, &local_env)
 }
 
 fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalError> {

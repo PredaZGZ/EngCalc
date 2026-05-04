@@ -155,7 +155,20 @@ impl App {
 
         match crate::core::parser::parse(&expr_str) {
             Ok(ast) => {
-                if let Some((name, val_expr)) = ast.as_assignment() {
+                // Check for function definition: f(x) = expr
+                if let Some((name, params, body)) = ast.as_function_def() {
+                    use crate::core::env::UserFunction;
+                    let func = UserFunction {
+                        name: name.to_string(),
+                        params: params.to_vec(),
+                        body: (*body).clone(),
+                    };
+                    self.env.set_function(func);
+                    let formatted = format!("{}({}) defined", name, params.join(", "));
+                    self.last_result = Some(formatted.clone());
+                    self.last_error = None;
+                    self.history.add(expr_str.clone(), formatted, false);
+                } else if let Some((name, val_expr)) = ast.as_assignment() {
                     let name = name.to_string();
                     match val_expr.eval(&self.env) {
                         Ok(value) => {

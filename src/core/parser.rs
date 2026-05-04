@@ -1,26 +1,28 @@
 /// Recursive-descent parser for engcalc.
 ///
 /// Grammar (precedence low to high):
-///   expr          -> assignment | unit_convert
-///   assignment    -> IDENTIFIER '=' expr
-///   unit_convert  -> addition_sub "in" IDENTIFIER
-///   addition_sub  -> mul_div_mod ( ("+"|"-") mul_div_mod )*
-///   mul_div_mod   -> unary ( ("*"|"/"|"%") unary | implicit_mul )*
+///   expr          -> function_def | assignment | unit_convert
+///   function_def  -> IDENTIFIER "(" params ")" "=" expr
+///   params        -> IDENTIFIER ("," IDENTIFIER)*
+///   assignment    -> IDENTIFIER "=" expr
+///   unit_convert  -> addition_sub "in" compound_unit
+///   addition_sub  -> mul_div_mod (("+"|"-") mul_div_mod)*
+///   mul_div_mod   -> unary (("*"|"/"|"%") unary | implicit_mul)*
 ///   unary         -> ("-" unary) | pow
-///   pow           -> call ( "^" unary )?    // right-associative
-///   call          -> primary ( "(" args? ")" )?
+///   pow           -> call ("^" unary)?
+///   call          -> primary ("(" args? ")")?
 ///   primary       -> NUMBER | IDENTIFIER | "(" expr ")"
 ///   args          -> expr ("," expr)*
+///   compound_unit -> unit ("/"|"*" unit)*
+///   unit          -> IDENTIFIER ("^" NUMBER)?
 ///
 /// Implicit multiplication is detected between:
 ///   - NUMBER followed by IDENTIFIER or LPAREN
 ///   - RPAREN followed by IDENTIFIER or LPAREN
-///   - UnitValue followed by LPAREN or IDENTIFIER
 ///
 /// Key decisions:
 /// - Power is right-associative: 2^3^2 = 2^(3^2) = 512
 /// - Unary minus binds tighter than power: -2^2 = -(2^2) = -4
-/// - Units are auto-detected in primary: NUMBER unit_id -> UnitValue
 use crate::core::ast::*;
 use crate::core::lexer::*;
 use crate::core::units;
@@ -102,11 +104,36 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
-        // Check for assignment: IDENTIFIER '=' expr
+        // Check for function definition: IDENTIFIER '(' params ')' '=' expr
         if let Token::Identifier(name) = self.current().clone() {
             let saved = self.pos;
             self.advance();
-            if matches!(self.current(), Token::Equals) {
+            if matches!(self.current(), Token::LParen) {
+                // Try to parse as function definition
+                self.advance();
+                // Try to parse params - if this fails, it's probably a function call, not a def
+                match self.parse_params() {
+                    Ok(params) => {
+                        if self.expect(Token::RParen).is_ok()
+                            && matches!(self.current(), Token::Equals)
+                        {
+                            self.advance();
+                            let body = self.parse_assignment_or_convert()?;
+                            return Ok(Expr::FunctionDef {
+                                name,
+                                params,
+                                body: Box::new(body),
+                            });
+                        }
+                    }
+                    Err(_) => {
+                        // Not a valid function definition, restore and try as function call
+                    }
+                }
+                // Not a function def, restore and continue
+                self.pos = saved;
+            } else if matches!(self.current(), Token::Equals) {
+                // Assignment: IDENTIFIER '=' expr
                 self.advance();
                 let value = self.parse_assignment_or_convert()?;
                 return Ok(Expr::Assignment {
@@ -117,6 +144,38 @@ impl Parser {
             self.pos = saved;
         }
         self.parse_assignment_or_convert()
+    }
+
+    fn parse_params(&mut self) -> Result<Vec<String>, ParseError> {
+        let mut params = Vec::new();
+
+        // Empty params
+        if matches!(self.current(), Token::RParen) {
+            return Ok(params);
+        }
+
+        // First param
+        match self.current().clone() {
+            Token::Identifier(name) => {
+                params.push(name);
+                self.advance();
+            }
+            _ => return Err(ParseError::ExpectedIdentifier),
+        }
+
+        // Additional params
+        while matches!(self.current(), Token::Comma) {
+            self.advance();
+            match self.current().clone() {
+                Token::Identifier(name) => {
+                    params.push(name);
+                    self.advance();
+                }
+                _ => return Err(ParseError::ExpectedIdentifier),
+            }
+        }
+
+        Ok(params)
     }
 
     fn parse_assignment_or_convert(&mut self) -> Result<Expr, ParseError> {

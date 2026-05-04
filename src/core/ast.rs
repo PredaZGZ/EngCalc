@@ -3,7 +3,7 @@ use std::fmt;
 
 /// Abstract Syntax Tree for mathematical expressions.
 /// Supports binary/unary operations, function calls, variables, numbers,
-/// and unit conversions.
+/// unit conversions, and user-defined functions.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Number(f64),
@@ -24,6 +24,11 @@ pub enum Expr {
     Assignment {
         name: String,
         value: Box<Expr>,
+    },
+    FunctionDef {
+        name: String,
+        params: Vec<String>,
+        body: Box<Expr>,
     },
     UnitConvert {
         value: Box<Expr>,
@@ -57,6 +62,13 @@ impl Expr {
             _ => None,
         }
     }
+
+    pub fn as_function_def(&self) -> Option<(&str, &[String], &Expr)> {
+        match self {
+            Expr::FunctionDef { name, params, body } => Some((name, params, body)),
+            _ => None,
+        }
+    }
 }
 
 /// Display implementation for pretty-printing AST (useful for debugging)
@@ -83,6 +95,16 @@ impl fmt::Display for Expr {
             }
             Expr::Assignment { name, value } => {
                 write!(f, "{} = {}", name, value)
+            }
+            Expr::FunctionDef { name, params, body } => {
+                write!(f, "{}(", name)?;
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", param)?;
+                }
+                write!(f, ") = {}", body)
             }
             Expr::UnitConvert { value, target_unit } => {
                 write!(f, "{} in {}", value, target_unit)
