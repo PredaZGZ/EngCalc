@@ -190,7 +190,9 @@ impl App {
                     let formatted = format!("{}({}) defined", name, params.join(", "));
                     self.last_result = Some(formatted.clone());
                     self.last_error = None;
-                    self.history.add(expr_str.clone(), formatted, false);
+                    let workspace = self.capture_workspace();
+                    self.history
+                        .add(expr_str.clone(), formatted, false, workspace);
                 } else if let Some((name, val_expr)) = ast.as_assignment() {
                     let name = name.to_string();
                     match val_expr.eval(&self.env) {
@@ -200,14 +202,21 @@ impl App {
                             let formatted = formatter::format_assignment(&name, &value);
                             self.last_result = Some(formatted.clone());
                             self.last_error = None;
-                            self.history.add(expr_str.clone(), formatted, false);
+                            let workspace = self.capture_workspace();
+                            self.history
+                                .add(expr_str.clone(), formatted, false, workspace);
                         }
                         Err(e) => {
                             let msg = e.to_string();
                             self.last_error = Some(msg.clone());
                             self.last_result = None;
-                            self.history
-                                .add(expr_str, formatter::format_error(&msg), true);
+                            let workspace = self.capture_workspace();
+                            self.history.add(
+                                expr_str,
+                                formatter::format_error(&msg),
+                                true,
+                                workspace,
+                            );
                         }
                     }
                 } else {
@@ -216,14 +225,21 @@ impl App {
                             let formatted = formatter::format_value(&value);
                             self.last_result = Some(formatted.clone());
                             self.last_error = None;
-                            self.history.add(expr_str.clone(), formatted, false);
+                            let workspace = self.capture_workspace();
+                            self.history
+                                .add(expr_str.clone(), formatted, false, workspace);
                         }
                         Err(e) => {
                             let msg = e.to_string();
                             self.last_error = Some(msg.clone());
                             self.last_result = None;
-                            self.history
-                                .add(expr_str, formatter::format_error(&msg), true);
+                            let workspace = self.capture_workspace();
+                            self.history.add(
+                                expr_str,
+                                formatter::format_error(&msg),
+                                true,
+                                workspace,
+                            );
                         }
                     }
                 }
@@ -232,8 +248,9 @@ impl App {
                 let msg = e.to_string();
                 self.last_error = Some(msg.clone());
                 self.last_result = None;
+                let workspace = self.capture_workspace();
                 self.history
-                    .add(expr_str, formatter::format_error(&msg), true);
+                    .add(expr_str, formatter::format_error(&msg), true, workspace);
             }
         }
 
@@ -317,8 +334,14 @@ impl App {
 
         if let Some(idx) = self.history_index {
             if idx < exprs.len() {
+                // Clone workspace first to avoid borrow issues
+                let workspace = self.history.get_workspace_at(idx).cloned();
                 self.input.set_content(exprs[idx].to_string());
                 self.input.cursor_end();
+                // Restore workspace state
+                if let Some(ws) = workspace {
+                    self.restore_workspace(&ws);
+                }
             }
         }
     }
@@ -332,10 +355,17 @@ impl App {
                     self.history_index = None;
                     self.input.clear();
                     self.is_command_mode = false;
+                    // Keep current workspace when clearing input
                 } else {
+                    // Clone workspace first to avoid borrow issues
+                    let workspace = self.history.get_workspace_at(idx + 1).cloned();
                     self.history_index = Some(idx + 1);
                     self.input.set_content(exprs[idx + 1].to_string());
                     self.input.cursor_end();
+                    // Restore workspace state
+                    if let Some(ws) = workspace {
+                        self.restore_workspace(&ws);
+                    }
                 }
             }
         }
@@ -553,6 +583,63 @@ impl App {
                 f.name.to_lowercase().contains(&q) || f.description.to_lowercase().contains(&q)
             })
             .collect()
+    }
+
+    /// Capture current workspace state (variables and functions)
+    fn capture_workspace(&self) -> crate::storage::history::WorkspaceState {
+        use crate::storage::history::{UserFunctionDef, WorkspaceState};
+
+        let mut variables = std::collections::HashMap::new();
+        for (name, value) in &self.user_vars {
+            variables.insert(name.clone(), value.number);
+        }
+
+        let mut functions = std::collections::HashMap::new();
+        for (name, func) in self.env.iter_functions() {
+            functions.insert(
+                name.clone(),
+                UserFunctionDef {
+                    name: func.name.clone(),
+                    params: func.params.clone(),
+                    body: format!("{}", func.body), // Format the AST body as string
+                },
+            );
+        }
+
+        WorkspaceState {
+            variables,
+            functions,
+        }
+    }
+
+    /// Restore workspace state from a snapshot
+    fn restore_workspace(&mut self, workspace: &crate::storage::history::WorkspaceState) {
+        use crate::core::env::UserFunction;
+        use crate::core::parser;
+
+        // Clear current workspace
+        self.user_vars.clear();
+        self.env.clear();
+
+        // Restore variables
+        for (name, value) in &workspace.variables {
+            let val = crate::core::value::Value::new(*value);
+            self.env.set(name.clone(), val.clone());
+            self.user_vars.insert(name.clone(), val);
+        }
+
+        // Restore functions
+        for (name, func_def) in &workspace.functions {
+            // Try to parse the body string back to AST
+            if let Ok(body_expr) = parser::parse(&func_def.body) {
+                let func = UserFunction {
+                    name: func_def.name.clone(),
+                    params: func_def.params.clone(),
+                    body: body_expr,
+                };
+                self.env.set_function(func);
+            }
+        }
     }
 }
 

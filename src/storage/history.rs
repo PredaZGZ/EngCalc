@@ -1,7 +1,23 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
+
+/// Represents the workspace state at a point in time
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct WorkspaceState {
+    pub variables: HashMap<String, f64>,
+    pub functions: HashMap<String, UserFunctionDef>,
+}
+
+/// Serializable function definition
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UserFunctionDef {
+    pub name: String,
+    pub params: Vec<String>,
+    pub body: String, // Store as string representation
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
@@ -9,6 +25,7 @@ pub struct HistoryEntry {
     pub result: String,
     pub is_error: bool,
     pub timestamp: u64,
+    pub workspace: WorkspaceState, // Snapshot of variables and functions
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +42,13 @@ impl History {
         }
     }
 
-    pub fn add(&mut self, expression: String, result: String, is_error: bool) {
+    pub fn add(
+        &mut self,
+        expression: String,
+        result: String,
+        is_error: bool,
+        workspace: WorkspaceState,
+    ) {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
@@ -36,6 +59,7 @@ impl History {
             result,
             is_error,
             timestamp,
+            workspace,
         });
 
         if self.entries.len() > self.max_entries {
@@ -46,6 +70,10 @@ impl History {
 
     pub fn get_expressions(&self) -> Vec<&str> {
         self.entries.iter().map(|e| e.expression.as_str()).collect()
+    }
+
+    pub fn get_workspace_at(&self, index: usize) -> Option<&WorkspaceState> {
+        self.entries.get(index).map(|e| &e.workspace)
     }
 
     pub fn last_n(&self, n: usize) -> Vec<&HistoryEntry> {
