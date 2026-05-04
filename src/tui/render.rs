@@ -50,6 +50,11 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
 
     // Tokenize input to colorize with syntax validation
     let tokens = tokenize_input_with_validation(&content, &app.user_vars, &app.env);
+    
+    // Track cursor position adjustment for Greek letter conversion
+    let mut visual_cursor_pos = cursor as i32;
+    let mut current_pos = 0;
+    
     for (token, token_type) in &tokens {
         let style = match token_type {
             TokenType::Constant => Style::default().fg(Color::Rgb(255, 105, 180)),
@@ -61,10 +66,22 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
         };
         // Convert Greek names to symbols for display
         let display_token = if let Some(symbol) = crate::core::greek::name_to_symbol(token) {
+            // Adjust cursor position if it's after this token
+            let token_end = current_pos + token.len();
+            if cursor > current_pos && cursor <= token_end {
+                // Cursor is within this token, adjust relative to symbol
+                let offset = token.len() - 1; // 1 char for the symbol
+                visual_cursor_pos -= offset as i32;
+            } else if cursor > token_end {
+                // Cursor is after this token
+                let offset = token.len() - 1;
+                visual_cursor_pos -= offset as i32;
+            }
             symbol.to_string()
         } else {
             token.clone()
         };
+        current_pos += token.len();
         spans.push(Span::styled(display_token, style));
     }
 
@@ -82,7 +99,7 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     f.render_widget(para, rects.input_area);
 
     let prompt_width = 2u16;
-    let cursor_x = rects.input_area.x + 1 + prompt_width + cursor as u16;
+    let cursor_x = rects.input_area.x + 1 + prompt_width + visual_cursor_pos.max(0) as u16;
     let cursor_y = rects.input_area.y + 1;
     if cursor_x < rects.input_area.x + rects.input_area.width - 1 {
         f.set_cursor_position(Position::new(cursor_x, cursor_y));
