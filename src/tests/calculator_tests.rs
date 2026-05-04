@@ -245,7 +245,7 @@ fn test_unit_km_to_m() {
         env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
     let val = ast.eval(&env).unwrap();
-    assert_eq!(formatter::format_value(&val), "10000");
+    assert_eq!(formatter::format_value(&val), "10000 m");
 }
 
 #[test]
@@ -256,7 +256,7 @@ fn test_unit_h_to_s() {
         env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
     let val = ast.eval(&env).unwrap();
-    assert_eq!(formatter::format_value(&val), "3600");
+    assert_eq!(formatter::format_value(&val), "3600 s");
 }
 
 #[test]
@@ -267,7 +267,7 @@ fn test_unit_bar_to_pa() {
         env.set(c.name.to_string(), crate::core::value::Value::new(c.value));
     }
     let val = ast.eval(&env).unwrap();
-    assert_eq!(formatter::format_value(&val), "500000");
+    assert_eq!(formatter::format_value(&val), "500000 Pa");
 }
 
 #[test]
@@ -358,4 +358,55 @@ fn test_scientific_notation_positive_exp() {
 #[test]
 fn test_scientific_notation_math() {
     assert_approx("2e3 + 1e2", 2100.0, 1.0);
+}
+
+#[test]
+fn test_compound_unit_velocity() {
+    // 36 km/h = 10 m/s
+    let result = eval("36 km/h in m/s").unwrap();
+    assert!(
+        result.contains("10") && result.contains("m/s"),
+        "Expected '10 m/s', got '{}'",
+        result
+    );
+}
+
+#[test]
+fn test_dimensional_mismatch() {
+    // Cannot add m + s
+    let result = eval("10 m + 5 s");
+    assert!(result.is_err(), "Should error on dimensional mismatch");
+}
+
+#[test]
+fn test_multiply_units() {
+    // 10 m * 5 m = 50 m²
+    let result = eval("10 m * 5 m").unwrap();
+    assert!(
+        result.contains("50") && result.contains("m"),
+        "Expected '50 m²', got '{}'",
+        result
+    );
+}
+
+#[test]
+fn test_force_units() {
+    // 1 kg * 1 m/s² = 1 N
+    let result = eval("1 kg * 1 m/s^2").unwrap();
+    assert!(
+        result.contains("1") && result.contains("N"),
+        "Expected '1 N', got '{}'",
+        result
+    );
+}
+
+#[test]
+fn test_newtons_equivalence() {
+    // 1 N should equal 1 kg·m/s²
+    let result = eval("1 N in kg*m/s^2").unwrap();
+    assert!(
+        result.contains("1") && (result.contains("kg") || result.contains("m")),
+        "Expected conversion to kg·m/s², got '{}'",
+        result
+    );
 }

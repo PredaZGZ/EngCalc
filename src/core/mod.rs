@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod constants;
+pub mod dimensions;
 pub mod env;
 pub mod evaluator;
 pub mod formatter;

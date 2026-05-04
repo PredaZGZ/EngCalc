@@ -7,14 +7,14 @@ pub fn format_value(value: &Value) -> String {
 
     if value.number.is_infinite() {
         if value.number > 0.0 {
-            return if let Some(ref unit) = value.unit {
-                format!("∞ {}", unit)
+            return if let Some(unit_str) = value.get_unit_string() {
+                format!("∞ {}", unit_str)
             } else {
                 "∞".to_string()
             };
         } else {
-            return if let Some(ref unit) = value.unit {
-                format!("-∞ {}", unit)
+            return if let Some(unit_str) = value.get_unit_string() {
+                format!("-∞ {}", unit_str)
             } else {
                 "-∞".to_string()
             };
@@ -23,8 +23,8 @@ pub fn format_value(value: &Value) -> String {
 
     let num_str = format_number(value.number);
 
-    if let Some(ref unit) = value.unit {
-        format!("{} {}", num_str, unit)
+    if let Some(unit_str) = value.get_unit_string() {
+        format!("{} {}", num_str, unit_str)
     } else {
         num_str
     }

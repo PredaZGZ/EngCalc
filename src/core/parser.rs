@@ -124,15 +124,15 @@ impl Parser {
 
         if let Token::In = self.current() {
             self.advance();
-            let unit = match self.current() {
-                Token::Identifier(name) => name.clone(),
-                _ => return Err(ParseError::ExpectedIdentifier),
-            };
-            self.advance();
-            return Ok(Expr::UnitConvert {
-                value: Box::new(left),
-                target_unit: unit,
-            });
+            // Parse compound unit string after "in"
+            let unit = self.parse_compound_unit_string();
+            if let Some(unit_str) = unit {
+                return Ok(Expr::UnitConvert {
+                    value: Box::new(left),
+                    target_unit: unit_str,
+                });
+            }
+            return Err(ParseError::ExpectedIdentifier);
         }
 
         Ok(left)
@@ -265,20 +265,86 @@ impl Parser {
         name != "in" && units::is_valid_unit(name)
     }
 
+    /// Parse a compound unit like "km/h" or "m*s^2" or "kg*m/s^2"
+    /// Only consumes unit tokens, stops when it sees non-unit tokens
+    fn parse_compound_unit_string(&mut self) -> Option<String> {
+        let mut result = String::new();
+        let mut first = true;
+        let mut expect_unit = true; // We expect a unit name next
+
+        loop {
+            if expect_unit {
+                // Expect an identifier (unit name)
+                if let Token::Identifier(name) = self.current().clone() {
+                    if !Self::is_known_unit(&name) {
+                        break;
+                    }
+                    if !first {
+                        result.push('*');
+                    }
+                    result.push_str(&name);
+                    self.advance();
+                    first = false;
+                    expect_unit = false; // Now expect operator or end
+
+                    // Check for power
+                    if matches!(self.current(), Token::Caret) {
+                        self.advance();
+                        if let Token::Number(n) = self.current().clone() {
+                            if n.fract() == 0.0 && n >= -9.0 && n <= 9.0 {
+                                result.push('^');
+                                result.push_str(&format!("{}", n as i8));
+                                self.advance();
+                            }
+                        }
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                // Expect / or * operator for compound units
+                match self.current() {
+                    Token::Slash => {
+                        result.push('/');
+                        self.advance();
+                        expect_unit = true; // Expect unit after /
+                    }
+                    Token::Star => {
+                        // Check if next is a unit - if not, this * is for multiplication
+                        if let Token::Identifier(name) = self.peek(1).clone() {
+                            if Self::is_known_unit(&name) {
+                                result.push('*');
+                                self.advance();
+                                expect_unit = true;
+                            } else {
+                                break; // * followed by non-unit, stop here
+                            }
+                        } else {
+                            break; // * not followed by identifier, stop here
+                        }
+                    }
+                    _ => break,
+                }
+            }
+        }
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         match self.current().clone() {
             Token::Number(n) => {
                 self.advance();
-                // Check for unit value: NUMBER unit_identifier
-                // Only treat as unit if it's a known unit, not a variable like 'x'
-                if let Token::Identifier(name) = self.current().clone() {
-                    if Self::is_known_unit(&name) {
-                        self.advance();
-                        return Ok(Expr::UnitValue {
-                            value: Box::new(Expr::Number(n)),
-                            unit: name,
-                        });
-                    }
+                // Check for compound unit after number
+                if let Some(unit_str) = self.parse_compound_unit_string() {
+                    return Ok(Expr::UnitValue {
+                        value: Box::new(Expr::Number(n)),
+                        unit: unit_str,
+                    });
                 }
                 Ok(Expr::Number(n))
             }
@@ -292,15 +358,12 @@ impl Parser {
                 self.expect(Token::RParen)
                     .map_err(|_| ParseError::UnmatchedParen)?;
 
-                // Check for unit after paren: (expr) unit
-                if let Token::Identifier(unit) = self.current().clone() {
-                    if Self::is_known_unit(&unit) {
-                        self.advance();
-                        return Ok(Expr::UnitValue {
-                            value: Box::new(expr),
-                            unit,
-                        });
-                    }
+                // Check for compound unit after paren
+                if let Some(unit_str) = self.parse_compound_unit_string() {
+                    return Ok(Expr::UnitValue {
+                        value: Box::new(expr),
+                        unit: unit_str,
+                    });
                 }
 
                 Ok(expr)

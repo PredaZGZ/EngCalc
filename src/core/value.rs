@@ -1,11 +1,12 @@
+use crate::core::units::CompoundUnit;
 use std::fmt;
 
 /// Represents a computed value in the calculator.
-/// Supports f64 numbers with optional unit annotations.
+/// Supports f64 numbers with optional compound unit.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Value {
     pub number: f64,
-    pub unit: Option<String>,
+    pub unit: Option<CompoundUnit>,
 }
 
 impl Value {
@@ -13,7 +14,16 @@ impl Value {
         Self { number, unit: None }
     }
 
-    pub fn with_unit(number: f64, unit: String) -> Self {
+    pub fn with_unit(number: f64, unit: CompoundUnit) -> Self {
+        Self {
+            number,
+            unit: Some(unit),
+        }
+    }
+
+    pub fn with_simple_unit(number: f64, unit_name: &str) -> Self {
+        let mut unit = CompoundUnit::new();
+        unit.add(unit_name, 1);
         Self {
             number,
             unit: Some(unit),
@@ -32,10 +42,24 @@ impl Value {
         self.unit.is_some()
     }
 
-    pub fn strip_unit(&self) -> Self {
-        Self {
-            number: self.number,
-            unit: None,
+    pub fn get_unit_string(&self) -> Option<String> {
+        self.unit.as_ref().map(|u| u.to_string())
+    }
+
+    /// Check if this value has compatible dimensions with another
+    pub fn dimensions_compatible(&self, other: &Self) -> bool {
+        match (&self.unit, &other.unit) {
+            (None, None) => true,
+            (Some(u1), Some(u2)) => {
+                if let (Ok((d1, _)), Ok((d2, _))) =
+                    (u1.to_dimensions_and_factor(), u2.to_dimensions_and_factor())
+                {
+                    d1.is_compatible(&d2)
+                } else {
+                    false
+                }
+            }
+            _ => false,
         }
     }
 }
