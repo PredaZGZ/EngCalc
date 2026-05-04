@@ -45,28 +45,27 @@ fn render_title(f: &mut Frame, rects: &layout::AppLayout, _app: &App) {
 }
 
 fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
-    let prefix = if app.is_command_mode {
-        Span::styled("  ❯ ", theme::prompt())
-    } else {
-        Span::styled("  ❯ ", theme::prompt())
-    };
-
+    let prompt_str = "> ";
     let input_text = Line::from(vec![
-        prefix,
-        Span::styled(&app.input.content, theme::bright()),
+        Span::styled(prompt_str, theme::prompt()),
+        Span::styled(app.input.content(), theme::bright()),
     ]);
 
     let input_block = Block::default()
+        .title(Line::from(vec![Span::styled(
+            " expression ",
+            Style::default().fg(theme::DIM),
+        )]))
         .borders(Borders::ALL)
-        .border_style(theme::border())
-        .padding(Padding::vertical(0));
+        .border_style(theme::border());
 
     let para = Paragraph::new(input_text).block(input_block);
     f.render_widget(para, rects.input_area);
 
-    let cursor_x = rects.input_area.x + 3 + app.input.cursor_pos as u16;
+    let prompt_width = 3u16;
+    let cursor_x = rects.input_area.x + 1 + prompt_width + app.input.cursor_pos() as u16;
     let cursor_y = rects.input_area.y + 1;
-    if cursor_x < rects.input_area.x + rects.input_area.width {
+    if cursor_x < rects.input_area.x + rects.input_area.width - 1 {
         f.set_cursor_position(Position::new(cursor_x, cursor_y));
     }
 }

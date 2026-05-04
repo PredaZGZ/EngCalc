@@ -119,7 +119,7 @@ impl App {
     }
 
     fn eval_input(&mut self) {
-        let expr_str = self.input.content.trim().to_string();
+        let expr_str = self.input.content().trim().to_string();
 
         if expr_str.is_empty() {
             self.is_command_mode = false;
@@ -253,7 +253,7 @@ impl App {
 
         if let Some(idx) = self.history_index {
             if idx < exprs.len() {
-                self.input.content = exprs[idx].to_string();
+                self.input.set_content(exprs[idx].to_string());
                 self.input.cursor_end();
             }
         }
@@ -270,7 +270,7 @@ impl App {
                     self.is_command_mode = false;
                 } else {
                     self.history_index = Some(idx + 1);
-                    self.input.content = exprs[idx + 1].to_string();
+                    self.input.set_content(exprs[idx + 1].to_string());
                     self.input.cursor_end();
                 }
             }
@@ -278,8 +278,8 @@ impl App {
     }
 
     fn autocomplete(&mut self) {
-        let text = &self.input.content;
-        let cursor = self.input.cursor_pos;
+        let text = self.input.content();
+        let cursor = self.input.cursor_pos();
 
         let word_start = {
             let mut found = 0;
@@ -352,9 +352,14 @@ impl App {
             let sugg = suggestion.clone();
             let remaining = &sugg[prefix_len..];
             let insert_pos = word_start + prefix_len;
-            let new_cursor_pos = self.input.cursor_pos + sugg.len() - prefix_len;
-            self.input.content.insert_str(insert_pos, remaining);
-            self.input.cursor_pos = new_cursor_pos;
+            let new_cursor_pos = self.input.cursor_pos() + sugg.len() - prefix_len;
+            // Insert remaining chars at position by rebuilding content
+            let current = self.input.content();
+            let before: String = current.chars().take(insert_pos).collect();
+            let after: String = current.chars().skip(insert_pos).collect();
+            self.input
+                .set_content(format!("{}{}{}", before, remaining, after));
+            self.input.set_cursor_pos(new_cursor_pos);
         }
     }
 
