@@ -10,10 +10,7 @@ pub struct Value {
 
 impl Value {
     pub fn new(number: f64) -> Self {
-        Self {
-            number,
-            unit: None,
-        }
+        Self { number, unit: None }
     }
 
     pub fn with_unit(number: f64, unit: String) -> Self {

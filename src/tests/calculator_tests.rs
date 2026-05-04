@@ -62,7 +62,12 @@ fn assert_approx(input: &str, expected: f64, tolerance: f64) {
 
 fn assert_error(input: &str) {
     let result = eval(input);
-    assert!(result.is_err(), "Expected error for '{}', but got: {:?}", input, result);
+    assert!(
+        result.is_err(),
+        "Expected error for '{}', but got: {:?}",
+        input,
+        result
+    );
 }
 
 #[test]

@@ -1,8 +1,8 @@
 mod app;
 mod core;
 mod storage;
-mod tui;
 mod tests;
+mod tui;
 
 use std::io;
 use std::time::Duration;

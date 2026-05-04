@@ -1,10 +1,10 @@
 pub mod ast;
+pub mod constants;
+pub mod env;
+pub mod evaluator;
+pub mod formatter;
+pub mod functions;
 pub mod lexer;
 pub mod parser;
-pub mod evaluator;
-pub mod value;
-pub mod env;
-pub mod functions;
-pub mod constants;
 pub mod units;
-pub mod formatter;
+pub mod value;

@@ -1,5 +1,5 @@
-use std::fmt;
 use crate::core::value::Value;
+use std::fmt;
 
 /// Abstract Syntax Tree for mathematical expressions.
 /// Supports binary/unary operations, function calls, variables, numbers,
@@ -118,7 +118,10 @@ impl fmt::Display for UnaryOperator {
 /// Evaluates an Expr to a Value if all variables resolve.
 /// This is a convenience method that delegates to the evaluator module.
 impl Expr {
-    pub fn eval(&self, env: &crate::core::env::Environment) -> Result<Value, crate::core::evaluator::EvalError> {
+    pub fn eval(
+        &self,
+        env: &crate::core::env::Environment,
+    ) -> Result<Value, crate::core::evaluator::EvalError> {
         crate::core::evaluator::evaluate(self, env)
     }
 }

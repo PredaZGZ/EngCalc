@@ -119,17 +119,14 @@ impl App {
                             let formatted = formatter::format_assignment(&name, &value);
                             self.last_result = Some(formatted.clone());
                             self.last_error = None;
-                            self.history.add(
-                                expr_str.clone(),
-                                formatted,
-                                false,
-                            );
+                            self.history.add(expr_str.clone(), formatted, false);
                         }
                         Err(e) => {
                             let msg = e.to_string();
                             self.last_error = Some(msg.clone());
                             self.last_result = None;
-                            self.history.add(expr_str, formatter::format_error(&msg), true);
+                            self.history
+                                .add(expr_str, formatter::format_error(&msg), true);
                         }
                     }
                 } else {
@@ -187,11 +184,7 @@ impl App {
                 msg.push_str("\nConstants:\n");
                 for (name, _desc, val) in crate::core::constants::list() {
                     let v = crate::core::value::Value::new(val);
-                    msg.push_str(&format!(
-                        "  {} ≈ {}\n",
-                        name,
-                        formatter::format_value(&v)
-                    ));
+                    msg.push_str(&format!("  {} ≈ {}\n", name, formatter::format_value(&v)));
                 }
                 self.last_result = Some(msg);
                 self.last_error = None;
@@ -200,11 +193,7 @@ impl App {
                 let mut msg = String::from("Constants:\n");
                 for (name, _desc, val) in crate::core::constants::list() {
                     let v = crate::core::value::Value::new(val);
-                    msg.push_str(&format!(
-                        "  {} ≈ {}\n",
-                        name,
-                        formatter::format_value(&v)
-                    ));
+                    msg.push_str(&format!("  {} ≈ {}\n", name, formatter::format_value(&v)));
                 }
                 self.last_result = Some(msg);
                 self.last_error = None;

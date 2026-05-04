@@ -16,13 +16,7 @@ pub fn call(name: &str, args: &[f64]) -> Result<f64, FuncError> {
         "asin" => unary(args, f64::asin),
         "acos" => unary(args, f64::acos),
         "atan" => unary(args, f64::atan),
-        "sqrt" => unary(args, |x| {
-            if x < 0.0 {
-                f64::NAN
-            } else {
-                x.sqrt()
-            }
-        }),
+        "sqrt" => unary(args, |x| if x < 0.0 { f64::NAN } else { x.sqrt() }),
         "ln" => unary(args, f64::ln),
         "log" => unary(args, f64::log10),
         "log10" => unary(args, f64::log10),
@@ -84,23 +78,7 @@ pub fn is_function(name: &str) -> bool {
 
 pub fn function_names() -> Vec<&'static str> {
     vec![
-        "sin",
-        "cos",
-        "tan",
-        "asin",
-        "acos",
-        "atan",
-        "sqrt",
-        "ln",
-        "log",
-        "log10",
-        "exp",
-        "abs",
-        "floor",
-        "ceil",
-        "round",
-        "min",
-        "max",
-        "pow",
+        "sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "log10", "exp", "abs",
+        "floor", "ceil", "round", "min", "max", "pow",
     ]
 }

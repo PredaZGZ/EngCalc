@@ -100,10 +100,7 @@ fn render_history(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
                     format!("{} = ", entry.expression),
                     Style::default().fg(Color::White),
                 ),
-                Span::styled(
-                    &entry.result,
-                    Style::default().fg(theme::ERROR_COLOR),
-                ),
+                Span::styled(&entry.result, Style::default().fg(theme::ERROR_COLOR)),
             ])
         } else {
             Line::from(vec![
@@ -111,10 +108,7 @@ fn render_history(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
                     format!("{} = ", entry.expression),
                     Style::default().fg(Color::White),
                 ),
-                Span::styled(
-                    &entry.result,
-                    Style::default().fg(theme::RESULT_COLOR),
-                ),
+                Span::styled(&entry.result, Style::default().fg(theme::RESULT_COLOR)),
             ])
         };
         lines.push(line);
@@ -154,10 +148,7 @@ fn render_vars(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     for (name, _desc, val) in &const_names {
         let display = crate::core::formatter::format_value(&crate::core::value::Value::new(*val));
         lines.push(Line::from(vec![
-            Span::styled(
-                format!("{:<6} ≈ ", name),
-                Style::default().fg(Color::Cyan),
-            ),
+            Span::styled(format!("{:<6} ≈ ", name), Style::default().fg(Color::Cyan)),
             Span::styled(display, Style::default().fg(Color::White)),
         ]));
     }

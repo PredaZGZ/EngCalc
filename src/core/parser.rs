@@ -21,7 +21,6 @@
 /// - Power is right-associative: 2^3^2 = 2^(3^2) = 512
 /// - Unary minus binds tighter than power: -2^2 = -(2^2) = -4
 /// - Units are auto-detected in primary: NUMBER unit_id -> UnitValue
-
 use crate::core::ast::*;
 use crate::core::lexer::*;
 use crate::core::units;
@@ -290,7 +289,8 @@ impl Parser {
             Token::LParen => {
                 self.advance();
                 let expr = self.parse_expr()?;
-                self.expect(Token::RParen).map_err(|_| ParseError::UnmatchedParen)?;
+                self.expect(Token::RParen)
+                    .map_err(|_| ParseError::UnmatchedParen)?;
 
                 // Check for unit after paren: (expr) unit
                 if let Token::Identifier(unit) = self.current().clone() {
