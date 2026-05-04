@@ -422,7 +422,25 @@ fn eval_integration(
         Expr::Identifier(name) => {
             // Try to get user-defined function
             if let Some(func) = env.get_function(name) {
-                (func.body.clone(), func.params.get(0).cloned().unwrap_or_else(|| "x".to_string()))
+                // Check if function has exactly one parameter
+                if func.params.len() != 1 {
+                    return Err(EvalError::InvalidArgument {
+                        func: match method {
+                            IntegrationMethod::Trapezoidal => "trapz".to_string(),
+                            IntegrationMethod::Simpson => "simpson".to_string(),
+                            IntegrationMethod::Rkf45 => "rkf45".to_string(),
+                        },
+                        reason: format!("Function '{}' has {} parameters, but integration requires exactly 1. Define a single-parameter function or use an expression like '{}'", 
+                            name, func.params.len(),
+                            if func.params.len() > 1 {
+                                format!("{}->{}({})", func.params[0], name, func.params[0])
+                            } else {
+                                format!("x->{}", name)
+                            }
+                        ),
+                    });
+                }
+                (func.body.clone(), func.params[0].clone())
             } else {
                 // Assume it's an expression with x
                 (func_expr.clone(), "x".to_string())

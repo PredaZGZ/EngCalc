@@ -1,6 +1,7 @@
 use crate::core::env::Environment;
 use crate::core::formatter;
 use crate::core::parser;
+use crate::core::ast::{Expr, BinaryOperator};
 
 fn eval(input: &str) -> Result<String, String> {
     let ast = parser::parse(input).map_err(|e| e.to_string())?;
@@ -545,6 +546,28 @@ fn test_integration_with_user_function() {
     let func_body = Expr::FunctionCall {
         name: "square".to_string(),
         args: vec![Expr::Identifier("x".to_string())],
+    };
+
+    let result = integration::simpson(&func_body, "x", 0.0, 1.0, 100, &env).unwrap();
+    assert!(
+        (result - 1.0 / 3.0).abs() < 1e-10,
+        "Expected 1/3, got {}",
+        result
+    );
+}
+
+#[test]
+fn test_integration_with_expression() {
+    // Test that we can integrate expressions directly without defining a function
+    use crate::core::integration;
+
+    let env = Environment::new();
+
+    // Integrate x^2 expression directly
+    let func_body = Expr::BinaryOp {
+        op: BinaryOperator::Pow,
+        left: Box::new(Expr::Identifier("x".to_string())),
+        right: Box::new(Expr::Number(2.0)),
     };
 
     let result = integration::simpson(&func_body, "x", 0.0, 1.0, 100, &env).unwrap();
