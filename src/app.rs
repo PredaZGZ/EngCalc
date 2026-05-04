@@ -629,7 +629,7 @@ impl App {
         }
 
         // Restore functions
-        for (name, func_def) in &workspace.functions {
+        for (_name, func_def) in &workspace.functions {
             // Try to parse the body string back to AST
             if let Ok(body_expr) = parser::parse(&func_def.body) {
                 let func = UserFunction {

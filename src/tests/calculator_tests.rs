@@ -1,8 +1,8 @@
 use crate::core::env::Environment;
 use crate::core::formatter;
 use crate::core::parser;
-use crate::core::ast::{Expr, BinaryOperator};
 
+#[allow(dead_code)]
 fn eval(input: &str) -> Result<String, String> {
     let ast = parser::parse(input).map_err(|e| e.to_string())?;
     let mut env = Environment::new();
@@ -18,6 +18,7 @@ fn eval(input: &str) -> Result<String, String> {
     }
 }
 
+#[allow(dead_code)]
 fn eval_with_env(input: &str) -> Result<(String, Environment), String> {
     let ast = parser::parse(input).map_err(|e| e.to_string())?;
     let mut env = Environment::new();
@@ -38,6 +39,7 @@ fn eval_with_env(input: &str) -> Result<(String, Environment), String> {
     }
 }
 
+#[allow(dead_code)]
 fn assert_result(input: &str, expected: &str) {
     let result = eval(input).expect(&format!("Expected success for '{}', but got error", input));
     assert_eq!(
@@ -47,6 +49,7 @@ fn assert_result(input: &str, expected: &str) {
     );
 }
 
+#[allow(dead_code)]
 fn assert_approx(input: &str, expected: f64, tolerance: f64) {
     let result = eval(input).expect(&format!("Expected success for '{}', but got error", input));
     let num: f64 = result
@@ -61,6 +64,7 @@ fn assert_approx(input: &str, expected: f64, tolerance: f64) {
     );
 }
 
+#[allow(dead_code)]
 fn assert_error(input: &str) {
     let result = eval(input);
     assert!(
@@ -524,7 +528,7 @@ fn test_user_function_uses_constants() {
 #[test]
 fn test_integration_with_user_function() {
     // Define f(x) = x^2, then integrate it
-    use crate::core::ast::{BinaryOperator, Expr};
+    use crate::core::ast::{Expr, BinaryOperator};
     use crate::core::env::UserFunction;
     use crate::core::integration;
 
@@ -559,6 +563,7 @@ fn test_integration_with_user_function() {
 #[test]
 fn test_integration_with_expression() {
     // Test that we can integrate expressions directly without defining a function
+    use crate::core::ast::{Expr, BinaryOperator};
     use crate::core::integration;
 
     let env = Environment::new();

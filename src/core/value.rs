@@ -28,10 +28,12 @@ impl Value {
         self.number.is_nan()
     }
 
+    #[allow(dead_code)]
     pub fn is_infinite(&self) -> bool {
         self.number.is_infinite()
     }
 
+    #[allow(dead_code)]
     pub fn has_unit(&self) -> bool {
         self.unit.is_some()
     }

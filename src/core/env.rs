@@ -32,6 +32,7 @@ impl Environment {
         self.variables.insert(name, value);
     }
 
+    #[allow(dead_code)]
     pub fn remove(&mut self, name: &str) -> Option<Value> {
         self.variables.remove(name)
     }
@@ -40,6 +41,7 @@ impl Environment {
         self.variables.iter()
     }
 
+    #[allow(dead_code)]
     pub fn contains(&self, name: &str) -> bool {
         self.variables.contains_key(name)
     }
@@ -53,10 +55,12 @@ impl Environment {
         self.functions.insert(func.name.clone(), func);
     }
 
+    #[allow(dead_code)]
     pub fn remove_function(&mut self, name: &str) -> Option<UserFunction> {
         self.functions.remove(name)
     }
 
+    #[allow(dead_code)]
     pub fn has_function(&self, name: &str) -> bool {
         self.functions.contains_key(name)
     }

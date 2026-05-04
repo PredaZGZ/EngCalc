@@ -19,6 +19,7 @@ impl InputBuffer {
         self.cursor_pos += 1;
     }
 
+    #[allow(dead_code)]
     pub fn insert_str(&mut self, s: &str) {
         for ch in s.chars() {
             self.chars.insert(self.cursor_pos, ch);

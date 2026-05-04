@@ -4,6 +4,7 @@ pub struct AppLayout {
     pub title_area: Rect,
     pub input_area: Rect,
     pub result_area: Rect,
+    #[allow(dead_code)]
     pub main_area: Rect,
     pub history_area: Rect,
     pub vars_area: Rect,

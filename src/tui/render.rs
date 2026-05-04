@@ -58,7 +58,6 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
             TokenType::Operator => Style::default().fg(Color::Rgb(200, 200, 200)),
             TokenType::Number => Style::default().fg(Color::Rgb(180, 220, 150)),
             TokenType::Valid => theme::bright(),
-            TokenType::Invalid => Style::default().fg(Color::Red),
         };
         spans.push(Span::styled(token.clone(), style));
     }
@@ -87,7 +86,6 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TokenType {
     Valid,
-    Invalid,
     Constant,
     Variable,
     Function,
@@ -120,11 +118,6 @@ fn tokenize_input_with_validation(
     if !current.is_empty() {
         let token_type = classify_token(&current, vars, env);
         tokens.push((current, token_type));
-    }
-
-    // Validate syntax by attempting to parse
-    if !input.trim().is_empty() {
-        validate_syntax(input, &mut tokens);
     }
 
     tokens
@@ -185,45 +178,6 @@ fn classify_token(
     }
 
     TokenType::Valid
-}
-
-fn validate_syntax(input: &str, tokens: &mut [(String, TokenType)]) {
-    use crate::core::parser;
-    
-    // Try to parse the input
-    match parser::parse(input) {
-        Ok(_) => {
-            // Valid syntax - tokens are already marked appropriately
-        }
-        Err(e) => {
-            // Invalid syntax - try to identify which token is problematic
-            let error_msg = e.to_string();
-            
-            // Look for common error patterns
-            if error_msg.contains("unknown") {
-                // Find unknown identifiers and mark them as invalid
-                for (token, token_type) in tokens.iter_mut() {
-                    if *token_type == TokenType::Valid 
-                        && token.chars().all(|c| c.is_alphabetic() || c == '_')
-                        && token.len() > 1 {
-                        *token_type = TokenType::Invalid;
-                    }
-                }
-            }
-            
-            // Check for unmatched parentheses
-            let open_parens = input.chars().filter(|&c| c == '(').count();
-            let close_parens = input.chars().filter(|&c| c == ')').count();
-            if open_parens != close_parens {
-                // Mark the area near the mismatch
-                for (token, token_type) in tokens.iter_mut() {
-                    if token == "(" || token == ")" {
-                        *token_type = TokenType::Invalid;
-                    }
-                }
-            }
-        }
-    }
 }
 
 fn render_result(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
