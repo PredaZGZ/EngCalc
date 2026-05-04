@@ -59,7 +59,13 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
             TokenType::Number => Style::default().fg(Color::Rgb(180, 220, 150)),
             TokenType::Valid => theme::bright(),
         };
-        spans.push(Span::styled(token.clone(), style));
+        // Convert Greek names to symbols for display
+        let display_token = if let Some(symbol) = crate::core::greek::name_to_symbol(token) {
+            symbol.to_string()
+        } else {
+            token.clone()
+        };
+        spans.push(Span::styled(display_token, style));
     }
 
     let input_text = Line::from(spans);
@@ -177,6 +183,11 @@ fn classify_token(
         return TokenType::Variable; // Likely a parameter like 'x'
     }
 
+    // Check if it's a Greek letter name (will be rendered as symbol)
+    if crate::core::greek::is_greek_name(token) {
+        return TokenType::Variable;
+    }
+
     TokenType::Valid
 }
 
@@ -226,10 +237,12 @@ fn render_history(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
 
     let entries = app.history.last_n(30);
     for entry in entries.iter().rev() {
+        // Convert Greek names to symbols in expression
+        let display_expr = crate::core::greek::replace_greek_names(&entry.expression);
         if entry.is_error {
             lines.push(Line::from(vec![
                 Span::styled(
-                    format!("  {} = ", entry.expression),
+                    format!("  {} = ", display_expr),
                     Style::default().fg(theme::DIM),
                 ),
                 Span::styled(&entry.result, theme::error()),
@@ -237,7 +250,7 @@ fn render_history(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
         } else {
             lines.push(Line::from(vec![
                 Span::styled(
-                    format!("  {} = ", entry.expression),
+                    format!("  {} = ", display_expr),
                     Style::default().fg(theme::DIM),
                 ),
                 Span::styled(&entry.result, theme::result()),

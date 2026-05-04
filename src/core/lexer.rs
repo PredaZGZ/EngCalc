@@ -89,10 +89,10 @@ pub fn tokenize(input: &str) -> Result<Vec<SpannedToken>, LexerError> {
             continue;
         }
 
-        if ch.is_alphabetic() || ch == '_' {
+        if ch.is_alphabetic() || ch == '_' || is_greek_char(ch) {
             let start = pos;
             let mut ident = String::new();
-            while pos < len && (chars[pos].is_alphanumeric() || chars[pos] == '_') {
+            while pos < len && (chars[pos].is_alphanumeric() || chars[pos] == '_' || is_greek_char(chars[pos])) {
                 ident.push(chars[pos]);
                 pos += 1;
             }
@@ -142,4 +142,12 @@ pub fn tokenize(input: &str) -> Result<Vec<SpannedToken>, LexerError> {
     });
 
     Ok(tokens)
+}
+
+/// Check if a character is a Greek letter (lowercase or uppercase)
+fn is_greek_char(ch: char) -> bool {
+    matches!(ch,
+        'α'..='ω' |  // Greek lowercase
+        'Α'..='Ω'    // Greek uppercase
+    )
 }
