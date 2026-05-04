@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::tui::layout;
 use crate::tui::theme;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Padding, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph};
 
 pub fn render(f: &mut Frame, app: &mut App) {
     let rects = layout::build_layout(f.area());
@@ -363,11 +363,15 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
         Span::styled(" search", theme::dim()),
     ]));
 
+    // Clear the area behind the overlay
+    f.render_widget(Clear, overlay);
+
     let block = Block::default()
         .title(" constants [F2] ")
         .title_style(theme::accent())
         .borders(Borders::ALL)
-        .border_style(theme::accent());
+        .border_style(theme::accent())
+        .style(Style::default().bg(Color::Black));
 
     let para = Paragraph::new(Text::from(lines)).block(block);
     f.render_widget(para, overlay);
@@ -416,11 +420,15 @@ fn render_functions_overlay(f: &mut Frame, _app: &App) {
         theme::dim(),
     )]));
 
+    // Clear the area behind the overlay
+    f.render_widget(Clear, overlay);
+
     let block = Block::default()
         .title(" functions [F4] ")
         .title_style(theme::accent())
         .borders(Borders::ALL)
-        .border_style(theme::accent());
+        .border_style(theme::accent())
+        .style(Style::default().bg(Color::Black));
 
     let para = Paragraph::new(Text::from(lines)).block(block);
     f.render_widget(para, overlay);
@@ -509,11 +517,15 @@ fn render_help_overlay(f: &mut Frame, _app: &App) {
         Line::from(vec![Span::styled("  press F1 to close", theme::dim())]),
     ];
 
+    // Clear the area behind the overlay
+    f.render_widget(Clear, overlay);
+
     let block = Block::default()
         .title(" help [F1] ")
         .title_style(theme::accent())
         .borders(Borders::ALL)
-        .border_style(theme::accent());
+        .border_style(theme::accent())
+        .style(Style::default().bg(Color::Black));
 
     let para = Paragraph::new(Text::from(lines)).block(block);
     f.render_widget(para, overlay);
