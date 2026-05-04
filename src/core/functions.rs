@@ -8,6 +8,107 @@ pub enum FuncError {
     InvalidArg(String),
 }
 
+pub struct FunctionInfo {
+    pub name: &'static str,
+    pub params: &'static str,
+    pub description: &'static str,
+}
+
+pub fn list_functions() -> Vec<FunctionInfo> {
+    vec![
+        FunctionInfo {
+            name: "sin",
+            params: "x",
+            description: "Sine (radians)",
+        },
+        FunctionInfo {
+            name: "cos",
+            params: "x",
+            description: "Cosine (radians)",
+        },
+        FunctionInfo {
+            name: "tan",
+            params: "x",
+            description: "Tangent (radians)",
+        },
+        FunctionInfo {
+            name: "asin",
+            params: "x",
+            description: "Arc sine",
+        },
+        FunctionInfo {
+            name: "acos",
+            params: "x",
+            description: "Arc cosine",
+        },
+        FunctionInfo {
+            name: "atan",
+            params: "x",
+            description: "Arc tangent",
+        },
+        FunctionInfo {
+            name: "sqrt",
+            params: "x",
+            description: "Square root",
+        },
+        FunctionInfo {
+            name: "ln",
+            params: "x",
+            description: "Natural logarithm",
+        },
+        FunctionInfo {
+            name: "log",
+            params: "x",
+            description: "Base-10 logarithm",
+        },
+        FunctionInfo {
+            name: "log10",
+            params: "x",
+            description: "Base-10 logarithm",
+        },
+        FunctionInfo {
+            name: "exp",
+            params: "x",
+            description: "Exponential e^x",
+        },
+        FunctionInfo {
+            name: "abs",
+            params: "x",
+            description: "Absolute value",
+        },
+        FunctionInfo {
+            name: "floor",
+            params: "x",
+            description: "Round down",
+        },
+        FunctionInfo {
+            name: "ceil",
+            params: "x",
+            description: "Round up",
+        },
+        FunctionInfo {
+            name: "round",
+            params: "x",
+            description: "Round to nearest",
+        },
+        FunctionInfo {
+            name: "min",
+            params: "a, b",
+            description: "Minimum of two",
+        },
+        FunctionInfo {
+            name: "max",
+            params: "a, b",
+            description: "Maximum of two",
+        },
+        FunctionInfo {
+            name: "pow",
+            params: "base, exp",
+            description: "Power base^exp",
+        },
+    ]
+}
+
 pub fn call(name: &str, args: &[f64]) -> Result<f64, FuncError> {
     match name {
         "sin" => unary(args, f64::sin),

@@ -20,6 +20,9 @@ pub fn render(f: &mut Frame, app: &mut App) {
     if app.show_help {
         render_help_overlay(f, app);
     }
+    if app.show_functions {
+        render_functions_overlay(f, app);
+    }
 }
 
 fn render_title(f: &mut Frame, _rects: &layout::AppLayout, _app: &App) {
@@ -263,18 +266,14 @@ fn render_footer(f: &mut Frame, rects: &layout::AppLayout) {
     let footer_text = Line::from(vec![
         Span::styled(" Enter ", Style::default().fg(theme::ACCENT)),
         Span::styled("eval  ", theme::DIM),
-        Span::styled(" Esc ", Style::default().fg(theme::ACCENT)),
-        Span::styled("clear  ", theme::DIM),
-        Span::styled(" ↑↓ ", Style::default().fg(theme::ACCENT)),
-        Span::styled("history  ", theme::DIM),
         Span::styled(" F1 ", Style::default().fg(theme::ACCENT)),
         Span::styled("help  ", theme::DIM),
         Span::styled(" F2 ", Style::default().fg(theme::ACCENT)),
         Span::styled("consts  ", theme::DIM),
-        Span::styled(" Tab ", Style::default().fg(theme::ACCENT)),
-        Span::styled("complete  ", theme::DIM),
-        Span::styled(" F3 ", Style::default().fg(theme::ACCENT)),
-        Span::styled("reset", theme::DIM),
+        Span::styled(" F4 ", Style::default().fg(theme::ACCENT)),
+        Span::styled("funcs  ", theme::DIM),
+        Span::styled(" Esc ", Style::default().fg(theme::ACCENT)),
+        Span::styled("clear", theme::DIM),
     ]);
 
     let footer = Paragraph::new(footer_text).style(theme::dim());
@@ -374,6 +373,59 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
     f.render_widget(para, overlay);
 }
 
+fn render_functions_overlay(f: &mut Frame, _app: &App) {
+    let area = f.area();
+    let overlay_w = 60.min(area.width);
+    let overlay_h = 24.min(area.height);
+    let overlay_x = (area.width - overlay_w) / 2;
+    let overlay_y = (area.height - overlay_h) / 2;
+    let overlay = Rect::new(overlay_x, overlay_y, overlay_w, overlay_h);
+
+    let mut lines = Vec::new();
+    lines.push(Line::from(vec![Span::styled(
+        " Functions",
+        Style::default()
+            .fg(theme::ACCENT)
+            .add_modifier(Modifier::BOLD),
+    )]));
+    lines.push(Line::from(""));
+
+    let funcs = crate::core::functions::list_functions();
+    for func in funcs.iter().take(18) {
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("  {:<8}", func.name),
+                Style::default().fg(Color::Rgb(255, 105, 180)),
+            ),
+            Span::styled(format!("({})", func.params), theme::dim()),
+            Span::styled("  — ", theme::dim()),
+            Span::styled(func.description, theme::dim()),
+        ]));
+    }
+
+    if funcs.len() > 18 {
+        lines.push(Line::from(vec![Span::styled(
+            format!("  ... and {} more", funcs.len() - 18),
+            theme::dim(),
+        )]));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![Span::styled(
+        "  press F4 to close",
+        theme::dim(),
+    )]));
+
+    let block = Block::default()
+        .title(" functions [F4] ")
+        .title_style(theme::accent())
+        .borders(Borders::ALL)
+        .border_style(theme::accent());
+
+    let para = Paragraph::new(Text::from(lines)).block(block);
+    f.render_widget(para, overlay);
+}
+
 fn render_help_overlay(f: &mut Frame, _app: &App) {
     let area = f.area();
     let overlay_w = 56.min(area.width);
@@ -441,6 +493,10 @@ fn render_help_overlay(f: &mut Frame, _app: &App) {
         Line::from(vec![
             Span::styled("  F3", theme::accent_dim()),
             Span::styled("     Reset (clear all)", theme::bright()),
+        ]),
+        Line::from(vec![
+            Span::styled("  F4", theme::accent_dim()),
+            Span::styled("     Show functions", theme::bright()),
         ]),
         Line::from(""),
         Line::from(vec![Span::styled("  Commands:", theme::accent_dim())]),

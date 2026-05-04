@@ -17,6 +17,7 @@ pub struct App {
     pub is_command_mode: bool,
     pub show_consts: bool,
     pub show_help: bool,
+    pub show_functions: bool,
     pub consts_search: String,
     pub consts_selected: usize,
 }
@@ -37,6 +38,7 @@ impl App {
             is_command_mode: false,
             show_consts: false,
             show_help: false,
+            show_functions: false,
             consts_search: String::new(),
             consts_selected: 0,
         }
@@ -52,6 +54,7 @@ impl App {
         if matches!(action, Action::ShowConsts) {
             self.show_consts = !self.show_consts;
             self.show_help = false;
+            self.show_functions = false;
             if self.show_consts {
                 self.consts_search.clear();
                 self.consts_selected = 0;
@@ -59,7 +62,14 @@ impl App {
             return;
         }
 
-        if self.show_consts {
+        if matches!(action, Action::ShowFunctions) {
+            self.show_functions = !self.show_functions;
+            self.show_help = false;
+            self.show_consts = false;
+            return;
+        }
+
+        if self.show_consts || self.show_functions {
             self.handle_consts_action(action);
             return;
         }
