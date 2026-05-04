@@ -104,6 +104,96 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     if cursor_x < rects.input_area.x + rects.input_area.width - 1 {
         f.set_cursor_position(Position::new(cursor_x, cursor_y));
     }
+
+    // Render autocomplete popup if visible
+    if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
+        render_autocomplete_popup(f, app, cursor_x, cursor_y);
+    }
+}
+
+fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16) {
+    let suggestions = &app.autocomplete_suggestions;
+    let selected = app.autocomplete_selected;
+
+    // Calculate popup dimensions
+    let max_width = suggestions.iter().map(|s| s.len()).max().unwrap_or(10) as u16 + 4;
+    let height = suggestions.len().min(8) as u16 + 2;
+    let width = max_width.min(40);
+
+    // Position popup below the cursor
+    let popup_x = cursor_x;
+    let popup_y = cursor_y + 1;
+
+    // Ensure popup doesn't go off screen
+    let area = f.area();
+    let final_x = if popup_x + width > area.width {
+        area.width.saturating_sub(width)
+    } else {
+        popup_x
+    };
+    let final_y = if popup_y + height > area.height {
+        popup_y.saturating_sub(height + 1)
+    } else {
+        popup_y
+    };
+
+    let popup_rect = Rect::new(final_x, final_y, width, height);
+
+    // Build popup content
+    let mut lines = Vec::new();
+    let visible_count = 6usize;
+
+    let total = suggestions.len();
+    let window_start = if total <= visible_count {
+        0
+    } else if selected < visible_count / 2 {
+        0
+    } else if selected > total - visible_count / 2 {
+        total - visible_count
+    } else {
+        selected - visible_count / 2
+    };
+    let window_end = (window_start + visible_count).min(total);
+
+    for i in window_start..window_end {
+        let suggestion = &suggestions[i];
+        let is_selected = i == selected;
+
+        if is_selected {
+            lines.push(Line::from(vec![
+                Span::styled(" › ", Style::default().fg(theme::ACCENT)),
+                Span::styled(
+                    suggestion.clone(),
+                    Style::default()
+                        .fg(theme::ACCENT)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]));
+        } else {
+            lines.push(Line::from(vec![
+                Span::styled("   ", Style::default()),
+                Span::styled(suggestion.clone(), Style::default().fg(Color::Gray)),
+            ]));
+        }
+    }
+
+    if total > visible_count {
+        lines.push(Line::from(vec![Span::styled(
+            format!("   ... {} more", total - window_end),
+            theme::dim(),
+        )]));
+    }
+
+    // Clear and render popup
+    f.render_widget(Clear, popup_rect);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(theme::accent())
+        .style(Style::default().bg(Color::Rgb(40, 40, 50)));
+
+    let para = Paragraph::new(Text::from(lines)).block(block);
+    f.render_widget(para, popup_rect);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

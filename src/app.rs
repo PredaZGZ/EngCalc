@@ -22,6 +22,10 @@ pub struct App {
     pub consts_selected: usize,
     pub funcs_search: String,
     pub funcs_selected: usize,
+    // Autocomplete/help popup state
+    pub show_autocomplete: bool,
+    pub autocomplete_suggestions: Vec<String>,
+    pub autocomplete_selected: usize,
 }
 
 impl App {
@@ -71,6 +75,110 @@ impl App {
             consts_selected: 0,
             funcs_search: String::new(),
             funcs_selected: 0,
+            show_autocomplete: false,
+            autocomplete_suggestions: Vec::new(),
+            autocomplete_selected: 0,
+        }
+    }
+
+    /// Update autocomplete suggestions based on current input
+    pub fn update_autocomplete(&mut self) {
+        let content = self.input.content();
+        let cursor = self.input.cursor_pos();
+        
+        // Get the word being typed (from last space or start to cursor)
+        let before_cursor = &content[..cursor.min(content.len())];
+        let word_start = before_cursor.rfind(|c: char| !c.is_alphanumeric() && c != '_')
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let current_word = &before_cursor[word_start..];
+        
+        if current_word.len() >= 1 {
+            let mut suggestions = Vec::new();
+            let word_lower = current_word.to_lowercase();
+            
+            // Match against built-in functions
+            for func in crate::core::functions::list_functions() {
+                if func.name.to_lowercase().starts_with(&word_lower) {
+                    suggestions.push(format!("{}({})", func.name, func.params));
+                }
+            }
+            
+            // Match against user-defined functions
+            for (name, func) in self.env.iter_functions() {
+                if name.to_lowercase().starts_with(&word_lower) && !suggestions.iter().any(|s| s.starts_with(name)) {
+                    suggestions.push(format!("{}({})", name, func.params.join(", ")));
+                }
+            }
+            
+            // Match against variables
+            for name in self.user_vars.keys() {
+                if name.to_lowercase().starts_with(&word_lower) && !suggestions.iter().any(|s| s.starts_with(name)) {
+                    suggestions.push(name.clone());
+                }
+            }
+            
+            // Match against constants
+            for c in crate::core::constants::list() {
+                if c.name.to_lowercase().starts_with(&word_lower) && !suggestions.iter().any(|s| s.starts_with(c.name)) {
+                    suggestions.push(c.name.to_string());
+                }
+            }
+            
+            suggestions.sort();
+            suggestions.dedup();
+            
+            if !suggestions.is_empty() {
+                self.autocomplete_suggestions = suggestions;
+                self.show_autocomplete = true;
+                self.autocomplete_selected = 0;
+            } else {
+                self.show_autocomplete = false;
+            }
+        } else {
+            self.show_autocomplete = false;
+        }
+    }
+    
+    /// Accept the currently selected autocomplete suggestion
+    pub fn accept_autocomplete(&mut self) {
+        if !self.show_autocomplete || self.autocomplete_suggestions.is_empty() {
+            return;
+        }
+        
+        let content = self.input.content();
+        let cursor = self.input.cursor_pos();
+        let before_cursor = &content[..cursor.min(content.len())];
+        let word_start = before_cursor.rfind(|c: char| !c.is_alphanumeric() && c != '_')
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        
+        let suggestion = &self.autocomplete_suggestions[self.autocomplete_selected];
+        
+        // Replace the current word with the suggestion
+        let new_content = format!("{}{}{}", 
+            &content[..word_start],
+            suggestion,
+            &content[cursor..]
+        );
+        
+        let new_cursor = word_start + suggestion.len();
+        self.input.set_content(new_content);
+        self.input.set_cursor_pos(new_cursor);
+        self.show_autocomplete = false;
+    }
+    
+    /// Navigate autocomplete suggestions
+    pub fn autocomplete_next(&mut self) {
+        if !self.autocomplete_suggestions.is_empty() {
+            self.autocomplete_selected = (self.autocomplete_selected + 1) % self.autocomplete_suggestions.len();
+        }
+    }
+    
+    pub fn autocomplete_prev(&mut self) {
+        if !self.autocomplete_suggestions.is_empty() {
+            let len = self.autocomplete_suggestions.len();
+            self.autocomplete_selected = (self.autocomplete_selected + len - 1) % len;
         }
     }
 
@@ -146,37 +254,48 @@ impl App {
                 self.last_error = None;
             }
             Action::HistoryUp => {
-                self.history_up();
+                self.handle_autocomplete_nav(true);
             }
             Action::HistoryDown => {
-                self.history_down();
+                self.handle_autocomplete_nav(false);
             }
             Action::Autocomplete => {
-                self.autocomplete();
+                if self.show_autocomplete {
+                    self.accept_autocomplete();
+                } else {
+                    self.autocomplete();
+                }
             }
             Action::CursorLeft => {
                 self.input.cursor_left();
+                self.show_autocomplete = false;
             }
             Action::CursorRight => {
                 self.input.cursor_right();
+                self.show_autocomplete = false;
             }
             Action::CursorHome => {
                 self.input.cursor_home();
+                self.show_autocomplete = false;
             }
             Action::CursorEnd => {
                 self.input.cursor_end();
+                self.show_autocomplete = false;
             }
             Action::DeleteBackward => {
                 self.input.delete_char();
+                self.update_autocomplete();
             }
             Action::DeleteForward => {
                 self.input.delete_forward();
+                self.update_autocomplete();
             }
             Action::InputChar(c) => {
                 if c == ':' && self.input.is_empty() {
                     self.is_command_mode = true;
                 }
                 self.input.insert_char(c);
+                self.update_autocomplete();
             }
             Action::CommandMode => {
                 if !self.input.is_empty() {
@@ -404,88 +523,26 @@ impl App {
     }
 
     fn autocomplete(&mut self) {
-        let text = self.input.content();
-        let cursor = self.input.cursor_pos();
-
-        let word_start = {
-            let mut found = 0;
-            for (i, c) in text.char_indices() {
-                if i >= cursor {
-                    break;
-                }
-                if !c.is_alphanumeric() && c != '_' {
-                    found = i + c.len_utf8();
-                }
-            }
-            if cursor > 0 {
-                let last_char = text.chars().nth(cursor - 1);
-                if let Some(c) = last_char {
-                    if c.is_alphanumeric() || c == '_' {
-                        let mut ws = 0;
-                        for (i, c) in text.char_indices().take(cursor) {
-                            if !c.is_alphanumeric() && c != '_' {
-                                ws = i + c.len_utf8();
-                            }
-                        }
-                        ws
-                    } else {
-                        found
-                    }
-                } else {
-                    found
-                }
+        // New autocomplete system: just trigger the popup
+        self.update_autocomplete();
+    }
+    
+    /// Handle autocomplete navigation with arrow keys
+    pub fn handle_autocomplete_nav(&mut self, up: bool) {
+        if !self.show_autocomplete {
+            // If autocomplete not showing, use arrow keys for history
+            if up {
+                self.history_up();
             } else {
-                0
+                self.history_down();
             }
-        };
-
-        let prefix = &text[word_start..cursor];
-
-        let mut suggestions: Vec<String> = Vec::new();
-
-        for c in crate::core::constants::list() {
-            if c.name.starts_with(prefix) && c.name.len() > prefix.len() {
-                suggestions.push(c.name.to_string());
+        } else {
+            // Navigate autocomplete suggestions
+            if up {
+                self.autocomplete_prev();
+            } else {
+                self.autocomplete_next();
             }
-        }
-
-        for name in crate::core::functions::function_names() {
-            if name.starts_with(prefix) && name.len() > prefix.len() {
-                suggestions.push(name.to_string());
-            }
-        }
-
-        for (var_name, _) in &self.user_vars {
-            if var_name.starts_with(prefix) && var_name.len() > prefix.len() {
-                suggestions.push(var_name.clone());
-            }
-        }
-
-        for unit in crate::core::units::get_unit_categories()
-            .iter()
-            .flat_map(|(_, units)| units.iter())
-        {
-            if unit.starts_with(prefix) && unit.len() > prefix.len() {
-                suggestions.push(unit.clone());
-            }
-        }
-
-        suggestions.sort();
-        suggestions.dedup();
-
-        if let Some(suggestion) = suggestions.first() {
-            let prefix_len = prefix.len();
-            let sugg = suggestion.clone();
-            let remaining = &sugg[prefix_len..];
-            let insert_pos = word_start + prefix_len;
-            let new_cursor_pos = self.input.cursor_pos() + sugg.len() - prefix_len;
-            // Insert remaining chars at position by rebuilding content
-            let current = self.input.content();
-            let before: String = current.chars().take(insert_pos).collect();
-            let after: String = current.chars().skip(insert_pos).collect();
-            self.input
-                .set_content(format!("{}{}{}", before, remaining, after));
-            self.input.set_cursor_pos(new_cursor_pos);
         }
     }
 
