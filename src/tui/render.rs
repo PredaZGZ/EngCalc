@@ -71,16 +71,8 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     let para = Paragraph::new(input_text).block(input_block);
     f.render_widget(para, rects.input_area);
 
-    // Calculate cursor position from token widths
-    let mut char_count = 0usize;
-    for (token, _, _) in &tokens {
-        if char_count + token.len() >= cursor {
-            break;
-        }
-        char_count += token.len();
-    }
     let prompt_width = 2u16;
-    let cursor_x = rects.input_area.x + 1 + prompt_width + char_count as u16;
+    let cursor_x = rects.input_area.x + 1 + prompt_width + cursor as u16;
     let cursor_y = rects.input_area.y + 1;
     if cursor_x < rects.input_area.x + rects.input_area.width - 1 {
         f.set_cursor_position(Position::new(cursor_x, cursor_y));
