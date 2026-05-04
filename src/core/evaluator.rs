@@ -60,9 +60,7 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
             let val = evaluate(operand, env)?;
             match op {
                 UnaryOperator::Neg => {
-                    let mut result = val;
-                    result.number = -result.number;
-                    Ok(result)
+                    Ok(Value::new(-val.number()))
                 }
             }
         }
@@ -79,7 +77,7 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
             let values = values?;
 
             // Functions operate on dimensionless numbers, so we strip units
-            let nums: Vec<f64> = values.iter().map(|v| v.number).collect();
+            let nums: Vec<f64> = values.iter().map(|v| v.number()).collect();
 
             let result = functions::call(name, &nums).map_err(|e| match e {
                 functions::FuncError::Unknown => EvalError::UnknownFunction { name: name.clone() },
@@ -107,7 +105,7 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
             if let Some(ref src_unit) = val.unit {
                 let src_str = src_unit.to_string();
                 let result =
-                    units::convert(val.number, &src_str, target_unit).map_err(|e| match e {
+                    units::convert(val.number(), &src_str, target_unit).map_err(|e| match e {
                         units::UnitError::DimensionalMismatch(_, _)
                         | units::UnitError::Incompatible { .. } => EvalError::IncompatibleUnits {
                             from: src_str.clone(),
@@ -135,11 +133,11 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
             let val = evaluate(value, env)?;
             // Try to parse as compound unit
             if let Ok(compound) = units::parse_compound_unit(unit) {
-                Ok(Value::with_unit(val.number, compound))
+                Ok(Value::with_unit(val.number(), compound))
             } else if units::is_valid_unit(unit) {
                 let mut compound = CompoundUnit::new();
                 compound.add(unit, 1);
-                Ok(Value::with_unit(val.number, compound))
+                Ok(Value::with_unit(val.number(), compound))
             } else {
                 Err(EvalError::UnknownUnit { unit: unit.clone() })
             }
@@ -209,19 +207,19 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
                     let u1_str = u1.to_string();
                     let u2_str = u2.to_string();
                     // Try to convert r to l's units
-                    let r_converted = units::convert(r.number, &u2_str, &u1_str).map_err(|_| {
+                    let r_converted = units::convert(r.number(), &u2_str, &u1_str).map_err(|_| {
                         EvalError::IncompatibleUnits {
                             from: u2_str.clone(),
                             to: u1_str.clone(),
                         }
                     })?;
-                    Ok(Value::with_unit(l.number + r_converted, u1.clone()))
+                    Ok(Value::with_unit(l.number() + r_converted, u1.clone()))
                 }
                 (Some(u), None) | (None, Some(u)) => {
                     // One has unit, one doesn't - just add numbers, keep unit
-                    Ok(Value::with_unit(l.number + r.number, u.clone()))
+                    Ok(Value::with_unit(l.number() + r.number(), u.clone()))
                 }
-                (None, None) => Ok(Value::new(l.number + r.number)),
+                (None, None) => Ok(Value::new(l.number() + r.number())),
             }
         }
         BinaryOperator::Sub => {
@@ -241,22 +239,22 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
                 (Some(u1), Some(u2)) => {
                     let u1_str = u1.to_string();
                     let u2_str = u2.to_string();
-                    let r_converted = units::convert(r.number, &u2_str, &u1_str).map_err(|_| {
+                    let r_converted = units::convert(r.number(), &u2_str, &u1_str).map_err(|_| {
                         EvalError::IncompatibleUnits {
                             from: u2_str.clone(),
                             to: u1_str.clone(),
                         }
                     })?;
-                    Ok(Value::with_unit(l.number - r_converted, u1.clone()))
+                    Ok(Value::with_unit(l.number() - r_converted, u1.clone()))
                 }
                 (Some(u), None) | (None, Some(u)) => {
-                    Ok(Value::with_unit(l.number - r.number, u.clone()))
+                    Ok(Value::with_unit(l.number() - r.number(), u.clone()))
                 }
-                (None, None) => Ok(Value::new(l.number - r.number)),
+                (None, None) => Ok(Value::new(l.number() - r.number())),
             }
         }
         BinaryOperator::Mul => {
-            let result_num = l.number * r.number;
+            let result_num = l.number() * r.number();
             match (l.unit, r.unit) {
                 (Some(mut u1), Some(u2)) => {
                     // Multiply units: combine all parts
@@ -277,10 +275,10 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
             }
         }
         BinaryOperator::Div => {
-            if r.number == 0.0 {
+            if r.number() == 0.0 {
                 return Err(EvalError::DivisionByZero);
             }
-            let result_num = l.number / r.number;
+            let result_num = l.number() / r.number();
             match (l.unit, r.unit) {
                 (Some(u1), Some(mut u2)) => {
                     // Divide: l units divided by r units = l * r^-1
@@ -312,7 +310,7 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
             }
         }
         BinaryOperator::Mod => {
-            if r.number == 0.0 {
+            if r.number() == 0.0 {
                 return Err(EvalError::DivisionByZero);
             }
             // Modulo requires same units
@@ -331,18 +329,18 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
                 (Some(u1), Some(u2)) => {
                     let u1_str = u1.to_string();
                     let u2_str = u2.to_string();
-                    let r_converted = units::convert(r.number, &u2_str, &u1_str).map_err(|_| {
+                    let r_converted = units::convert(r.number(), &u2_str, &u1_str).map_err(|_| {
                         EvalError::IncompatibleUnits {
                             from: u2_str.clone(),
                             to: u1_str.clone(),
                         }
                     })?;
-                    Ok(Value::with_unit(l.number % r_converted, u1.clone()))
+                    Ok(Value::with_unit(l.number() % r_converted, u1.clone()))
                 }
                 (Some(u), None) | (None, Some(u)) => {
-                    Ok(Value::with_unit(l.number % r.number, u.clone()))
+                    Ok(Value::with_unit(l.number() % r.number(), u.clone()))
                 }
-                (None, None) => Ok(Value::new(l.number % r.number)),
+                (None, None) => Ok(Value::new(l.number() % r.number())),
             }
         }
         BinaryOperator::Pow => {
@@ -353,11 +351,11 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
                     reason: "exponent must be dimensionless".to_string(),
                 });
             }
-            let exp = r.number;
-            let result_num = if l.number >= 0.0 || exp.fract() == 0.0 {
-                l.number.powf(exp)
+            let exp = r.number();
+            let result_num = if l.number() >= 0.0 || exp.fract() == 0.0 {
+                l.number().powf(exp)
             } else {
-                l.number.powf(exp) // Will produce NaN for invalid cases
+                l.number().powf(exp) // Will produce NaN for invalid cases
             };
             match l.unit {
                 Some(u) => {

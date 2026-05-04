@@ -591,7 +591,7 @@ impl App {
 
         let mut variables = std::collections::HashMap::new();
         for (name, value) in &self.user_vars {
-            variables.insert(name.clone(), value.number);
+            variables.insert(name.clone(), value.number());
         }
 
         let mut functions = std::collections::HashMap::new();

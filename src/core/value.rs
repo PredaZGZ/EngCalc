@@ -11,19 +11,13 @@ pub struct Value {
 
 impl Value {
     pub fn new(number: f64) -> Self {
-        Self { number, unit: None }
-    }
-
-    pub fn with_unit(number: f64, unit: CompoundUnit) -> Self {
         Self {
             number,
-            unit: Some(unit),
+            unit: None,
         }
     }
 
-    pub fn with_simple_unit(number: f64, unit_name: &str) -> Self {
-        let mut unit = CompoundUnit::new();
-        unit.add(unit_name, 1);
+    pub fn with_unit(number: f64, unit: CompoundUnit) -> Self {
         Self {
             number,
             unit: Some(unit),
@@ -46,10 +40,13 @@ impl Value {
         self.unit.as_ref().map(|u| u.to_string())
     }
 
+    pub fn number(&self) -> f64 {
+        self.number
+    }
+
     /// Check if this value has compatible dimensions with another
     pub fn dimensions_compatible(&self, other: &Self) -> bool {
         match (&self.unit, &other.unit) {
-            (None, None) => true,
             (Some(u1), Some(u2)) => {
                 if let (Ok((d1, _)), Ok((d2, _))) =
                     (u1.to_dimensions_and_factor(), u2.to_dimensions_and_factor())
@@ -59,6 +56,7 @@ impl Value {
                     false
                 }
             }
+            (None, None) => true,
             _ => false,
         }
     }
@@ -66,7 +64,7 @@ impl Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.is_nan() {
+        if self.number.is_nan() {
             write!(f, "NaN")
         } else if self.number.is_infinite() {
             if self.number > 0.0 {

@@ -5,8 +5,8 @@ pub fn format_value(value: &Value) -> String {
         return "NaN".to_string();
     }
 
-    if value.number.is_infinite() {
-        if value.number > 0.0 {
+    if value.number().is_infinite() {
+        if value.number() > 0.0 {
             return if let Some(unit_str) = value.get_unit_string() {
                 format!("∞ {}", unit_str)
             } else {
@@ -21,7 +21,7 @@ pub fn format_value(value: &Value) -> String {
         }
     }
 
-    let num_str = format_number(value.number);
+    let num_str = format_number(value.number());
 
     if let Some(unit_str) = value.get_unit_string() {
         format!("{} {}", num_str, unit_str)

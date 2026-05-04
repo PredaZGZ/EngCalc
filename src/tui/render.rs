@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::tui::layout;
 use crate::tui::theme;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
 pub fn render(f: &mut Frame, app: &mut App) {
     let rects = layout::build_layout(f.area());

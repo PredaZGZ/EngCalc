@@ -1,5 +1,4 @@
 use crate::core::dimensions::Dimensions;
-use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug, Clone, thiserror::Error)]

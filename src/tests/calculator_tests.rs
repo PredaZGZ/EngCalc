@@ -1,4 +1,4 @@
-use crate::core::env::{Environment, UserFunction};
+use crate::core::env::Environment;
 use crate::core::formatter;
 use crate::core::parser;
 
@@ -442,9 +442,9 @@ fn test_user_function_single_param() {
 
     let result = call.eval(&env).unwrap();
     assert!(
-        (result.number - 26.0).abs() < 1e-10,
+        (result.number() - 26.0).abs() < 1e-10,
         "Expected 26, got {}",
-        result.number
+        result.number()
     );
 }
 
@@ -474,9 +474,9 @@ fn test_user_function_two_params() {
 
     let result = call.eval(&env).unwrap();
     assert!(
-        (result.number - 7.0).abs() < 1e-10,
+        (result.number() - 7.0).abs() < 1e-10,
         "Expected 7, got {}",
-        result.number
+        result.number()
     );
 }
 
@@ -514,8 +514,8 @@ fn test_user_function_uses_constants() {
 
     let result = call.eval(&env).unwrap();
     assert!(
-        (result.number - std::f64::consts::PI).abs() < 1e-10,
+        (result.number() - std::f64::consts::PI).abs() < 1e-10,
         "Expected pi, got {}",
-        result.number
+        result.number()
     );
 }
