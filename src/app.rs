@@ -133,10 +133,14 @@ impl App {
                 self.show_autocomplete = true;
                 self.autocomplete_selected = 0;
             } else {
+                // Hide popup when no suggestions match
                 self.show_autocomplete = false;
+                self.autocomplete_suggestions.clear();
             }
         } else {
+            // Hide popup when word is too short or input is empty
             self.show_autocomplete = false;
+            self.autocomplete_suggestions.clear();
         }
     }
     

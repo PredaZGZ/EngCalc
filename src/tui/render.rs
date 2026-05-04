@@ -115,6 +115,11 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
     let suggestions = &app.autocomplete_suggestions;
     let selected = app.autocomplete_selected;
 
+    // Extra safety check - don't render if no suggestions
+    if suggestions.is_empty() {
+        return;
+    }
+
     // Calculate popup dimensions
     let max_width = suggestions.iter().map(|s| s.len()).max().unwrap_or(10) as u16 + 4;
     let height = suggestions.len().min(8) as u16 + 2;
