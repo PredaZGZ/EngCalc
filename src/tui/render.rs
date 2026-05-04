@@ -186,7 +186,7 @@ fn render_footer(f: &mut Frame, rects: &layout::AppLayout) {
         Span::styled(" Enter ", Style::default().fg(theme::ACCENT)),
         Span::styled("eval  ", theme::DIM),
         Span::styled(" Esc ", Style::default().fg(theme::ACCENT)),
-        Span::styled("quit  ", theme::DIM),
+        Span::styled("clear  ", theme::DIM),
         Span::styled(" ↑↓ ", Style::default().fg(theme::ACCENT)),
         Span::styled("history  ", theme::DIM),
         Span::styled(" F1 ", Style::default().fg(theme::ACCENT)),
@@ -265,7 +265,7 @@ fn render_help_overlay(f: &mut Frame, _app: &App) {
         ]),
         Line::from(vec![
             Span::styled("  Esc", theme::accent_dim()),
-            Span::styled("    Quit", theme::bright()),
+            Span::styled("    Clear input", theme::bright()),
         ]),
         Line::from(vec![
             Span::styled("  Ctrl+C", theme::accent_dim()),
@@ -315,10 +315,7 @@ fn render_help_overlay(f: &mut Frame, _app: &App) {
         )]),
         Line::from(""),
         Line::from(""),
-        Line::from(vec![Span::styled(
-            "  press F1 or Esc to close",
-            theme::dim(),
-        )]),
+        Line::from(vec![Span::styled("  press F1 to close", theme::dim())]),
     ];
 
     let block = Block::default()

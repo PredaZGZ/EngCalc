@@ -28,7 +28,7 @@ pub fn handle_key(key: KeyEvent) -> Option<Action> {
     let ctrl = key.modifiers == KeyModifiers::CONTROL;
 
     match key.code {
-        KeyCode::Esc => Some(Action::Quit),
+        KeyCode::Esc => Some(Action::ClearInput),
         KeyCode::Char('c') if ctrl => Some(Action::Quit),
         KeyCode::Enter => Some(Action::Eval),
         KeyCode::Up => Some(Action::HistoryUp),
