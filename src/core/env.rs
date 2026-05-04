@@ -70,6 +70,16 @@ impl Environment {
         self.variables.clear();
         self.functions.clear();
     }
+
+    /// Copy all variables and functions from another environment
+    pub fn copy_from(&mut self, other: &Environment) {
+        for (name, value) in other.iter() {
+            self.variables.insert(name.clone(), value.clone());
+        }
+        for (name, func) in other.iter_functions() {
+            self.functions.insert(name.clone(), func.clone());
+        }
+    }
 }
 
 impl Default for Environment {

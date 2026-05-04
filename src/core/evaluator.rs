@@ -66,6 +66,14 @@ pub fn evaluate(expr: &Expr, env: &Environment) -> Result<Value, EvalError> {
         }
 
         Expr::FunctionCall { name, args } => {
+            // Special integration functions that take a function expression as first arg
+            match name.as_str() {
+                "trapz" => return eval_integration(args, env, IntegrationMethod::Trapezoidal),
+                "simpson" => return eval_integration(args, env, IntegrationMethod::Simpson),
+                "rkf45" => return eval_integration(args, env, IntegrationMethod::Rkf45),
+                _ => {}
+            }
+
             // First check for user-defined functions
             if let Some(func) = env.get_function(name).cloned() {
                 return eval_user_function(&func, args, env);
@@ -370,4 +378,114 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> Result<Value, EvalEr
             }
         }
     }
+}
+
+enum IntegrationMethod {
+    Trapezoidal,
+    Simpson,
+    Rkf45,
+}
+
+fn eval_integration(
+    args: &[Expr],
+    env: &Environment,
+    method: IntegrationMethod,
+) -> Result<Value, EvalError> {
+    use crate::core::integration;
+
+    let min_args = match method {
+        IntegrationMethod::Rkf45 => 3, // func, a, b (uses adaptive tolerance)
+        _ => 4,                        // func, a, b, n
+    };
+
+    if args.len() < min_args {
+        return Err(EvalError::ArgCount {
+            name: match method {
+                IntegrationMethod::Trapezoidal => "trapz".to_string(),
+                IntegrationMethod::Simpson => "simpson".to_string(),
+                IntegrationMethod::Rkf45 => "rkf45".to_string(),
+            },
+            expected: min_args,
+            got: args.len(),
+        });
+    }
+
+    // First argument: function expression
+    let func_expr = &args[0];
+
+    // Get bounds
+    let a = evaluate(&args[1], env)?.number();
+    let b = evaluate(&args[2], env)?.number();
+
+    // Extract function body and parameter name
+    let (func_body, param_name) = match func_expr {
+        Expr::Identifier(name) => {
+            // Try to get user-defined function
+            if let Some(func) = env.get_function(name) {
+                (func.body.clone(), func.params.get(0).cloned().unwrap_or_else(|| "x".to_string()))
+            } else {
+                // Assume it's an expression with x
+                (func_expr.clone(), "x".to_string())
+            }
+        }
+        Expr::FunctionCall { name: _, args: call_args } if call_args.len() == 1 => {
+            if let Expr::Identifier(param) = &call_args[0] {
+                (func_expr.clone(), param.clone())
+            } else {
+                return Err(EvalError::InvalidArgument {
+                    func: match method {
+                        IntegrationMethod::Trapezoidal => "trapz".to_string(),
+                        IntegrationMethod::Simpson => "simpson".to_string(),
+                        IntegrationMethod::Rkf45 => "rkf45".to_string(),
+                    },
+                    reason: "Expected parameter name".to_string(),
+                });
+            }
+        }
+        _ => {
+            // Direct expression like "x^2"
+            (func_expr.clone(), "x".to_string())
+        }
+    };
+
+    // Perform integration
+    let result = match method {
+        IntegrationMethod::Trapezoidal => {
+            let n = evaluate(&args[3], env)?.number() as usize;
+            integration::trapezoidal(&func_body, &param_name, a, b, n, env)
+                .map_err(|e| EvalError::InvalidArgument {
+                    func: "trapz".to_string(),
+                    reason: e,
+                })?
+        }
+        IntegrationMethod::Simpson => {
+            let n = evaluate(&args[3], env)?.number() as usize;
+            // Make sure n is even
+            let n = if n % 2 == 0 { n } else { n + 1 };
+            integration::simpson(&func_body, &param_name, a, b, n, env)
+                .map_err(|e| EvalError::InvalidArgument {
+                    func: "simpson".to_string(),
+                    reason: e,
+                })?
+        }
+        IntegrationMethod::Rkf45 => {
+            let tolerance = if args.len() >= 4 {
+                evaluate(&args[3], env)?.number()
+            } else {
+                1e-6
+            };
+            let max_steps = if args.len() >= 5 {
+                evaluate(&args[4], env)?.number() as usize
+            } else {
+                10000
+            };
+            integration::rkf45(&func_body, &param_name, a, b, tolerance, max_steps, env)
+                .map_err(|e| EvalError::InvalidArgument {
+                    func: "rkf45".to_string(),
+                    reason: e,
+                })?
+        }
+    };
+
+    Ok(Value::new(result))
 }

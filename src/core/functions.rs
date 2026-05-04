@@ -106,6 +106,22 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             params: "base, exp",
             description: "Power base^exp",
         },
+        // Integration functions
+        FunctionInfo {
+            name: "trapz",
+            params: "f, a, b, n",
+            description: "Integral by trapezoidal rule (n intervals)",
+        },
+        FunctionInfo {
+            name: "simpson",
+            params: "f, a, b, n",
+            description: "Integral by Simpson's rule (n intervals, n even)",
+        },
+        FunctionInfo {
+            name: "rkf45",
+            params: "f, a, b, [tol], [max_steps]",
+            description: "Integral by RKF45 adaptive quadrature",
+        },
     ]
 }
 
@@ -174,12 +190,15 @@ pub fn is_function(name: &str) -> bool {
             | "min"
             | "max"
             | "pow"
+            | "trapz"
+            | "simpson"
+            | "rkf45"
     )
 }
 
 pub fn function_names() -> Vec<&'static str> {
     vec![
         "sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "log10", "exp", "abs",
-        "floor", "ceil", "round", "min", "max", "pow",
+        "floor", "ceil", "round", "min", "max", "pow", "trapz", "simpson", "rkf45",
     ]
 }

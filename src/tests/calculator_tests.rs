@@ -519,3 +519,38 @@ fn test_user_function_uses_constants() {
         result.number()
     );
 }
+
+#[test]
+fn test_integration_with_user_function() {
+    // Define f(x) = x^2, then integrate it
+    use crate::core::ast::{BinaryOperator, Expr};
+    use crate::core::env::UserFunction;
+    use crate::core::integration;
+
+    let mut env = Environment::new();
+
+    // f(x) = x^2
+    let func = UserFunction {
+        name: "square".to_string(),
+        params: vec!["x".to_string()],
+        body: Expr::BinaryOp {
+            op: BinaryOperator::Pow,
+            left: Box::new(Expr::Identifier("x".to_string())),
+            right: Box::new(Expr::Number(2.0)),
+        },
+    };
+    env.set_function(func);
+
+    // Integrate square(x) from 0 to 1 using Simpson's rule
+    let func_body = Expr::FunctionCall {
+        name: "square".to_string(),
+        args: vec![Expr::Identifier("x".to_string())],
+    };
+
+    let result = integration::simpson(&func_body, "x", 0.0, 1.0, 100, &env).unwrap();
+    assert!(
+        (result - 1.0 / 3.0).abs() < 1e-10,
+        "Expected 1/3, got {}",
+        result
+    );
+}

@@ -48,15 +48,17 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     let prompt_str = "> ";
     let mut spans = vec![Span::styled(prompt_str, theme::prompt())];
 
-    // Tokenize input to colorize constants and variables
-    let tokens = tokenize_input(&content, &app.user_vars);
-    for (token, is_const, is_var) in &tokens {
-        let style = if *is_const {
-            Style::default().fg(Color::Rgb(255, 105, 180))
-        } else if *is_var {
-            Style::default().fg(theme::RESULT)
-        } else {
-            theme::bright()
+    // Tokenize input to colorize with syntax validation
+    let tokens = tokenize_input_with_validation(&content, &app.user_vars, &app.env);
+    for (token, token_type) in &tokens {
+        let style = match token_type {
+            TokenType::Constant => Style::default().fg(Color::Rgb(255, 105, 180)),
+            TokenType::Variable => Style::default().fg(theme::RESULT),
+            TokenType::Function => Style::default().fg(Color::Rgb(100, 200, 255)),
+            TokenType::Operator => Style::default().fg(Color::Rgb(200, 200, 200)),
+            TokenType::Number => Style::default().fg(Color::Rgb(180, 220, 150)),
+            TokenType::Valid => theme::bright(),
+            TokenType::Invalid => Style::default().fg(Color::Red),
         };
         spans.push(Span::styled(token.clone(), style));
     }
@@ -82,12 +84,23 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     }
 }
 
-/// Tokenize input into words and non-word segments.
-/// Returns (text, is_constant, is_variable).
-fn tokenize_input<'a>(
-    input: &'a str,
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum TokenType {
+    Valid,
+    Invalid,
+    Constant,
+    Variable,
+    Function,
+    Operator,
+    Number,
+}
+
+/// Tokenize input with syntax validation for real-time error highlighting
+fn tokenize_input_with_validation(
+    input: &str,
     vars: &std::collections::HashMap<String, crate::core::value::Value>,
-) -> Vec<(String, bool, bool)> {
+    env: &crate::core::env::Environment,
+) -> Vec<(String, TokenType)> {
     let mut tokens = Vec::new();
     let mut current = String::new();
     let mut in_word = false;
@@ -96,8 +109,8 @@ fn tokenize_input<'a>(
         let is_word_char = ch.is_alphanumeric() || ch == '_';
         if is_word_char != in_word {
             if !current.is_empty() {
-                let (is_const, is_var) = classify_word(&current, vars);
-                tokens.push((current.clone(), is_const, is_var));
+                let token_type = classify_token(&current, vars, env);
+                tokens.push((current.clone(), token_type));
                 current.clear();
             }
             in_word = is_word_char;
@@ -105,26 +118,112 @@ fn tokenize_input<'a>(
         current.push(ch);
     }
     if !current.is_empty() {
-        let (is_const, is_var) = classify_word(&current, vars);
-        tokens.push((current, is_const, is_var));
+        let token_type = classify_token(&current, vars, env);
+        tokens.push((current, token_type));
+    }
+
+    // Validate syntax by attempting to parse
+    if !input.trim().is_empty() {
+        validate_syntax(input, &mut tokens);
     }
 
     tokens
 }
 
-fn classify_word(
-    word: &str,
+fn classify_token(
+    token: &str,
     vars: &std::collections::HashMap<String, crate::core::value::Value>,
-) -> (bool, bool) {
+    env: &crate::core::env::Environment,
+) -> TokenType {
+    // Check if it's a number
+    if token.chars().all(|c| c.is_ascii_digit() || c == '.' || c == 'e' || c == 'E' || c == '-' || c == '+')
+        && token.chars().any(|c| c.is_ascii_digit())
+    {
+        return TokenType::Number;
+    }
+
+    // Check if it's an operator
+    if token.chars().all(|c| "+-*/^%=<>!&|~".contains(c)) {
+        return TokenType::Operator;
+    }
+
+    // Check parentheses and brackets - always valid
+    if token.chars().all(|c| "()[]{}".contains(c)) {
+        return TokenType::Valid;
+    }
+
+    // Check constants
     for c in crate::core::constants::list() {
-        if c.name == word {
-            return (true, false);
+        if c.name == token {
+            return TokenType::Constant;
         }
     }
-    if vars.contains_key(word) {
-        return (false, true);
+
+    // Check built-in functions
+    if crate::core::functions::is_function(token) {
+        return TokenType::Function;
     }
-    (false, false)
+
+    // Check user-defined functions
+    if env.get_function(token).is_some() {
+        return TokenType::Function;
+    }
+
+    // Check variables
+    if vars.contains_key(token) {
+        return TokenType::Variable;
+    }
+
+    // Check if it's a unit
+    if crate::core::units::is_valid_unit(token) {
+        return TokenType::Valid;
+    }
+
+    // Single character identifiers might be parameters (valid in context)
+    if token.len() == 1 && token.chars().next().unwrap().is_ascii_lowercase() {
+        return TokenType::Variable; // Likely a parameter like 'x'
+    }
+
+    TokenType::Valid
+}
+
+fn validate_syntax(input: &str, tokens: &mut [(String, TokenType)]) {
+    use crate::core::parser;
+    
+    // Try to parse the input
+    match parser::parse(input) {
+        Ok(_) => {
+            // Valid syntax - tokens are already marked appropriately
+        }
+        Err(e) => {
+            // Invalid syntax - try to identify which token is problematic
+            let error_msg = e.to_string();
+            
+            // Look for common error patterns
+            if error_msg.contains("unknown") {
+                // Find unknown identifiers and mark them as invalid
+                for (token, token_type) in tokens.iter_mut() {
+                    if *token_type == TokenType::Valid 
+                        && token.chars().all(|c| c.is_alphabetic() || c == '_')
+                        && token.len() > 1 {
+                        *token_type = TokenType::Invalid;
+                    }
+                }
+            }
+            
+            // Check for unmatched parentheses
+            let open_parens = input.chars().filter(|&c| c == '(').count();
+            let close_parens = input.chars().filter(|&c| c == ')').count();
+            if open_parens != close_parens {
+                // Mark the area near the mismatch
+                for (token, token_type) in tokens.iter_mut() {
+                    if token == "(" || token == ")" {
+                        *token_type = TokenType::Invalid;
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn render_result(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
