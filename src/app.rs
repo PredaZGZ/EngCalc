@@ -20,6 +20,8 @@ pub struct App {
     pub show_functions: bool,
     pub consts_search: String,
     pub consts_selected: usize,
+    pub funcs_search: String,
+    pub funcs_selected: usize,
 }
 
 impl App {
@@ -41,6 +43,8 @@ impl App {
             show_functions: false,
             consts_search: String::new(),
             consts_selected: 0,
+            funcs_search: String::new(),
+            funcs_selected: 0,
         }
     }
 
@@ -66,6 +70,15 @@ impl App {
             self.show_functions = !self.show_functions;
             self.show_help = false;
             self.show_consts = false;
+            if self.show_functions {
+                self.funcs_search.clear();
+                self.funcs_selected = 0;
+            }
+            return;
+        }
+
+        if self.show_functions {
+            self.handle_funcs_action(action);
             return;
         }
 
@@ -473,6 +486,73 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn handle_funcs_action(&mut self, action: Action) {
+        match action {
+            Action::Quit | Action::ClearInput | Action::ClearScreen => {
+                self.show_functions = false;
+                self.funcs_search.clear();
+                self.funcs_selected = 0;
+            }
+            Action::HistoryUp => {
+                let filtered = self.filtered_functions();
+                if !filtered.is_empty() && self.funcs_selected > 0 {
+                    self.funcs_selected -= 1;
+                }
+            }
+            Action::HistoryDown => {
+                let filtered = self.filtered_functions();
+                if !filtered.is_empty() && self.funcs_selected + 1 < filtered.len() {
+                    self.funcs_selected += 1;
+                }
+            }
+            Action::Eval | Action::ShowFunctions => {
+                let filtered = self.filtered_functions();
+                if !filtered.is_empty() && self.funcs_selected < filtered.len() {
+                    let selected = &filtered[self.funcs_selected];
+                    let insert_text = format!("{}(", selected.name);
+                    let insert_at = self.input.cursor_pos();
+                    let current = self.input.content();
+                    let before: String = current.chars().take(insert_at).collect();
+                    let after: String = current.chars().skip(insert_at).collect();
+                    self.input
+                        .set_content(format!("{}{}{}", before, insert_text, after));
+                    self.input.set_cursor_pos(insert_at + insert_text.len());
+                }
+                self.show_functions = false;
+                self.funcs_search.clear();
+                self.funcs_selected = 0;
+            }
+            Action::InputChar(c) => {
+                self.funcs_search.push(c);
+                self.funcs_selected = 0;
+            }
+            Action::DeleteBackward => {
+                self.funcs_search.pop();
+                self.funcs_selected = 0;
+            }
+            Action::DeleteForward => {
+                if !self.funcs_search.is_empty() {
+                    self.funcs_search.remove(self.funcs_search.len() - 1);
+                    self.funcs_selected = 0;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn filtered_functions(&self) -> Vec<crate::core::functions::FunctionInfo> {
+        let all = crate::core::functions::list_functions();
+        if self.funcs_search.is_empty() {
+            return all;
+        }
+        let q = self.funcs_search.to_lowercase();
+        all.into_iter()
+            .filter(|f| {
+                f.name.to_lowercase().contains(&q) || f.description.to_lowercase().contains(&q)
+            })
+            .collect()
     }
 }
 

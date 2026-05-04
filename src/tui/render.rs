@@ -377,7 +377,7 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
     f.render_widget(para, overlay);
 }
 
-fn render_functions_overlay(f: &mut Frame, _app: &App) {
+fn render_functions_overlay(f: &mut Frame, app: &mut App) {
     let area = f.area();
     let overlay_w = 60.min(area.width);
     let overlay_h = 24.min(area.height);
@@ -385,40 +385,81 @@ fn render_functions_overlay(f: &mut Frame, _app: &App) {
     let overlay_y = (area.height - overlay_h) / 2;
     let overlay = Rect::new(overlay_x, overlay_y, overlay_w, overlay_h);
 
+    let filtered = app.filtered_functions();
+
     let mut lines = Vec::new();
-    lines.push(Line::from(vec![Span::styled(
-        " Functions",
-        Style::default()
-            .fg(theme::ACCENT)
-            .add_modifier(Modifier::BOLD),
-    )]));
+
+    // Search bar
+    let search_bar = Line::from(vec![
+        Span::styled(" / ", theme::accent()),
+        Span::styled(&app.funcs_search, theme::bright()),
+        if app.funcs_search.is_empty() {
+            Span::styled("type to filter...", theme::dim())
+        } else {
+            Span::default()
+        },
+    ]);
+    lines.push(search_bar);
     lines.push(Line::from(""));
 
-    let funcs = crate::core::functions::list_functions();
-    for func in funcs.iter().take(18) {
-        lines.push(Line::from(vec![
-            Span::styled(
-                format!("  {:<8}", func.name),
-                Style::default().fg(Color::Rgb(255, 105, 180)),
-            ),
-            Span::styled(format!("({})", func.params), theme::dim()),
-            Span::styled("  — ", theme::dim()),
-            Span::styled(func.description, theme::dim()),
-        ]));
-    }
-
-    if funcs.len() > 18 {
+    // Results
+    if filtered.is_empty() {
         lines.push(Line::from(vec![Span::styled(
-            format!("  ... and {} more", funcs.len() - 18),
+            "  (no results)",
             theme::dim(),
         )]));
+    } else {
+        let visible = filtered.iter().take(16);
+        for (i, func) in visible.enumerate() {
+            let is_selected = i == app.funcs_selected;
+            let arrow = if is_selected { "▸ " } else { "  " };
+
+            if is_selected {
+                lines.push(Line::from(vec![
+                    Span::styled(arrow, theme::accent()),
+                    Span::styled(
+                        format!("{:<8}", func.name),
+                        Style::default()
+                            .fg(Color::Rgb(255, 105, 180))
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(format!("({})", func.params), theme::dim()),
+                    Span::styled("  — ", theme::dim()),
+                    Span::styled(func.description, theme::dim()),
+                ]));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled(arrow, theme::dim()),
+                    Span::styled(
+                        format!("{:<8}", func.name),
+                        Style::default().fg(Color::Rgb(255, 105, 180)),
+                    ),
+                    Span::styled(format!("({})", func.params), theme::dim()),
+                    Span::styled("  — ", theme::dim()),
+                    Span::styled(func.description, theme::dim()),
+                ]));
+            }
+        }
+
+        if filtered.len() > 16 {
+            lines.push(Line::from(vec![Span::styled(
+                format!("  ... and {} more", filtered.len() - 16),
+                theme::dim(),
+            )]));
+        }
     }
 
     lines.push(Line::from(""));
-    lines.push(Line::from(vec![Span::styled(
-        "  press F4 to close",
-        theme::dim(),
-    )]));
+    lines.push(Line::from(vec![
+        Span::styled(" Enter", theme::accent()),
+        Span::styled(" insert  ", theme::dim()),
+        Span::styled(" ↑↓", theme::accent()),
+        Span::styled(" nav  ", theme::dim()),
+        Span::styled(" Esc", theme::accent()),
+        Span::styled(" close  ", theme::dim()),
+        Span::styled(" /", theme::accent()),
+        Span::styled(" search", theme::dim()),
+    ]));
 
     // Clear the area behind the overlay
     f.render_widget(Clear, overlay);
