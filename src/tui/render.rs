@@ -56,7 +56,7 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     let para = Paragraph::new(input_text).block(input_block);
     f.render_widget(para, rects.input_area);
 
-    let prompt_width = 3u16;
+    let prompt_width = 2u16;
     let cursor_x = rects.input_area.x + 1 + prompt_width + app.input.cursor_pos() as u16;
     let cursor_y = rects.input_area.y + 1;
     if cursor_x < rects.input_area.x + rects.input_area.width - 1 {
