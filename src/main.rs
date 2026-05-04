@@ -2,6 +2,7 @@ mod app;
 mod core;
 mod storage;
 mod tui;
+mod tests;
 
 use std::io;
 use std::time::Duration;

@@ -5,23 +5,26 @@
 ///   assignment    -> IDENTIFIER '=' expr
 ///   unit_convert  -> addition_sub "in" IDENTIFIER
 ///   addition_sub  -> mul_div_mod ( ("+"|"-") mul_div_mod )*
-///   mul_div_mod   -> unary ( ("*"|"/"|"%") unary )*
+///   mul_div_mod   -> unary ( ("*"|"/"|"%") unary | implicit_mul )*
 ///   unary         -> ("-" unary) | pow
-///   pow           -> call ( "^" unary )*    // right-associative
+///   pow           -> call ( "^" unary )?    // right-associative
 ///   call          -> primary ( "(" args? ")" )?
 ///   primary       -> NUMBER | IDENTIFIER | "(" expr ")"
 ///   args          -> expr ("," expr)*
 ///
+/// Implicit multiplication is detected between:
+///   - NUMBER followed by IDENTIFIER or LPAREN
+///   - RPAREN followed by IDENTIFIER or LPAREN
+///   - UnitValue followed by LPAREN or IDENTIFIER
+///
 /// Key decisions:
 /// - Power is right-associative: 2^3^2 = 2^(3^2) = 512
 /// - Unary minus binds tighter than power: -2^2 = -(2^2) = -4
-/// - Implicit multiplication is detected between:
-///   - NUMBER followed by IDENTIFIER or LPAREN
-///   - RPAREN followed by IDENTIFIER or LPAREN
-///   - IDENTIFIER followed by LPAREN (already handled as function call)
+/// - Units are auto-detected in primary: NUMBER unit_id -> UnitValue
 
 use crate::core::ast::*;
 use crate::core::lexer::*;
+use crate::core::units;
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ParseError {
@@ -161,11 +164,13 @@ impl Parser {
         let mut left = self.parse_unary()?;
 
         loop {
+            // Check for explicit operators first
             let op = match self.current() {
                 Token::Star => BinaryOperator::Mul,
                 Token::Slash => BinaryOperator::Div,
                 Token::Percent => BinaryOperator::Mod,
                 _ => {
+                    // Check for implicit multiplication
                     if self.check_implicit_mul() {
                         BinaryOperator::Mul
                     } else {
@@ -174,11 +179,8 @@ impl Parser {
                 }
             };
 
-            if op == BinaryOperator::Mul && !matches!(self.current(), Token::Star) {
-                self.advance();
-            } else if !matches!(self.current(), Token::Star | Token::Slash | Token::Percent) {
-                break;
-            } else {
+            // For implicit multiplication, we don't consume a token
+            if matches!(self.current(), Token::Star | Token::Slash | Token::Percent) {
                 self.advance();
             }
 
@@ -193,14 +195,13 @@ impl Parser {
         Ok(left)
     }
 
+    /// Check if current token position implies multiplication with the previous expression.
     fn check_implicit_mul(&self) -> bool {
         match self.current() {
-            Token::Number(_) => {
-                matches!(self.peek(1), Token::Identifier(_) | Token::LParen)
-                    || matches!(self.peek(1), Token::Identifier(name) if name == "in")
-            }
-            Token::Identifier(_) => matches!(self.peek(1), Token::LParen),
-            Token::In => true,
+            // After a parenthesized expression, implicit mul with: ident or (
+            Token::LParen => true,
+            // Number followed by ident (for unit values or variables like 2x)
+            Token::Identifier(_) => true,
             _ => false,
         }
     }
@@ -261,17 +262,22 @@ impl Parser {
         Ok(args)
     }
 
+    fn is_known_unit(name: &str) -> bool {
+        name != "in" && units::is_valid_unit(name)
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         match self.current().clone() {
             Token::Number(n) => {
                 self.advance();
-                // Check for implicit unit value: NUMBER IDENTIFIER
-                if let Token::Identifier(unit) = self.current().clone() {
-                    if unit != "in" {
+                // Check for unit value: NUMBER unit_identifier
+                // Only treat as unit if it's a known unit, not a variable like 'x'
+                if let Token::Identifier(name) = self.current().clone() {
+                    if Self::is_known_unit(&name) {
                         self.advance();
                         return Ok(Expr::UnitValue {
                             value: Box::new(Expr::Number(n)),
-                            unit,
+                            unit: name,
                         });
                     }
                 }
@@ -286,12 +292,13 @@ impl Parser {
                 let expr = self.parse_expr()?;
                 self.expect(Token::RParen).map_err(|_| ParseError::UnmatchedParen)?;
 
-                if matches!(self.current(), Token::Identifier(unit) if unit != "in") {
-                    let unit_name = self.advance();
-                    if let Token::Identifier(u) = unit_name {
+                // Check for unit after paren: (expr) unit
+                if let Token::Identifier(unit) = self.current().clone() {
+                    if Self::is_known_unit(&unit) {
+                        self.advance();
                         return Ok(Expr::UnitValue {
                             value: Box::new(expr),
-                            unit: u,
+                            unit,
                         });
                     }
                 }
