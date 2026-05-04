@@ -289,6 +289,7 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
     let overlay = Rect::new(overlay_x, overlay_y, overlay_w, overlay_h);
 
     let filtered = crate::core::constants::search(&app.consts_search);
+    let visible_count = 16usize;
 
     let mut lines = Vec::new();
 
@@ -312,9 +313,29 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
             theme::dim(),
         )]));
     } else {
-        let visible = filtered.iter().take(16);
-        for (i, c) in visible.enumerate() {
-            let is_selected = i == app.consts_selected;
+        // Calculate window start based on selection
+        let total = filtered.len();
+        let selected = app.consts_selected;
+        let window_start = if total <= visible_count {
+            0
+        } else if selected < visible_count / 2 {
+            0
+        } else if selected > total - visible_count / 2 {
+            total - visible_count
+        } else {
+            selected - visible_count / 2
+        };
+
+        let window_end = (window_start + visible_count).min(total);
+
+        // Show scroll indicator if needed
+        if window_start > 0 {
+            lines.push(Line::from(vec![Span::styled("  ▲ ...", theme::dim())]));
+        }
+
+        for i in window_start..window_end {
+            let c = &filtered[i];
+            let is_selected = i == selected;
             let v = crate::core::value::Value::new(c.value);
             let display = crate::core::formatter::format_value(&v);
             let arrow = if is_selected { "▸ " } else { "  " };
@@ -343,9 +364,9 @@ fn render_consts_overlay(f: &mut Frame, app: &mut App) {
             }
         }
 
-        if filtered.len() > 16 {
+        if window_end < total {
             lines.push(Line::from(vec![Span::styled(
-                format!("  ... and {} more", filtered.len() - 16),
+                format!("  ▼ ... {} more", total - window_end),
                 theme::dim(),
             )]));
         }
@@ -386,6 +407,7 @@ fn render_functions_overlay(f: &mut Frame, app: &mut App) {
     let overlay = Rect::new(overlay_x, overlay_y, overlay_w, overlay_h);
 
     let filtered = app.filtered_functions();
+    let visible_count = 16usize; // Number of items visible at once
 
     let mut lines = Vec::new();
 
@@ -409,9 +431,29 @@ fn render_functions_overlay(f: &mut Frame, app: &mut App) {
             theme::dim(),
         )]));
     } else {
-        let visible = filtered.iter().take(16);
-        for (i, func) in visible.enumerate() {
-            let is_selected = i == app.funcs_selected;
+        // Calculate window start based on selection
+        let total = filtered.len();
+        let selected = app.funcs_selected;
+        let window_start = if total <= visible_count {
+            0
+        } else if selected < visible_count / 2 {
+            0
+        } else if selected > total - visible_count / 2 {
+            total - visible_count
+        } else {
+            selected - visible_count / 2
+        };
+
+        let window_end = (window_start + visible_count).min(total);
+
+        // Show scroll indicator if needed
+        if window_start > 0 {
+            lines.push(Line::from(vec![Span::styled("  ▲ ...", theme::dim())]));
+        }
+
+        for i in window_start..window_end {
+            let func = &filtered[i];
+            let is_selected = i == selected;
             let arrow = if is_selected { "▸ " } else { "  " };
 
             if is_selected {
@@ -441,9 +483,9 @@ fn render_functions_overlay(f: &mut Frame, app: &mut App) {
             }
         }
 
-        if filtered.len() > 16 {
+        if window_end < total {
             lines.push(Line::from(vec![Span::styled(
-                format!("  ... and {} more", filtered.len() - 16),
+                format!("  ▼ ... {} more", total - window_end),
                 theme::dim(),
             )]));
         }
