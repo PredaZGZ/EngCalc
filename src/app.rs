@@ -199,6 +199,9 @@ impl App {
                         Ok(value) => {
                             self.env.set(name.clone(), value.clone());
                             self.user_vars.insert(name.clone(), value.clone());
+                            // Also store in ans
+                            self.env.set("ans".to_string(), value.clone());
+                            self.user_vars.insert("ans".to_string(), value.clone());
                             let formatted = formatter::format_assignment(&name, &value);
                             self.last_result = Some(formatted.clone());
                             self.last_error = None;
@@ -222,6 +225,9 @@ impl App {
                 } else {
                     match ast.eval(&self.env) {
                         Ok(value) => {
+                            // Store result in ans variable
+                            self.env.set("ans".to_string(), value.clone());
+                            self.user_vars.insert("ans".to_string(), value.clone());
                             let formatted = formatter::format_value(&value);
                             self.last_result = Some(formatted.clone());
                             self.last_error = None;

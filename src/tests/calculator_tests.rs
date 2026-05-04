@@ -582,3 +582,19 @@ fn test_integration_with_expression() {
         result
     );
 }
+
+#[test]
+fn test_ans_variable() {
+    // Test that ans stores the last result
+    let mut env = Environment::new();
+
+    // First calculation: 5 + 3 = 8
+    let ast1 = parser::parse("5 + 3").unwrap();
+    let result1 = ast1.eval(&env).unwrap();
+    env.set("ans".to_string(), result1.clone());
+
+    // Second calculation using ans: ans * 2 should be 16
+    let ast2 = parser::parse("ans * 2").unwrap();
+    let result2 = ast2.eval(&env).unwrap();
+    assert_eq!(result2.number(), 16.0);
+}
