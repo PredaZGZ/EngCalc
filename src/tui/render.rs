@@ -22,7 +22,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
     }
 }
 
-fn render_title(f: &mut Frame, rects: &layout::AppLayout, _app: &App) {
+fn render_title(f: &mut Frame, _rects: &layout::AppLayout, _app: &App) {
     let title_line = Line::from(vec![
         Span::styled(
             " engcalc",
@@ -30,18 +30,12 @@ fn render_title(f: &mut Frame, rects: &layout::AppLayout, _app: &App) {
                 .fg(theme::ACCENT)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            "  ─────────────────────────────────────────────────────────",
-            Style::default().fg(theme::BORDER),
-        ),
+        Span::styled(" v", theme::DIM),
+        Span::styled(env!("CARGO_PKG_VERSION"), theme::DIM),
     ]);
 
-    let block = Block::default()
-        .borders(Borders::NONE)
-        .padding(Padding::ZERO);
-
-    let para = Paragraph::new(title_line).block(block);
-    f.render_widget(para, rects.title_area);
+    let para = Paragraph::new(title_line);
+    f.render_widget(para, _rects.title_area);
 }
 
 fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {

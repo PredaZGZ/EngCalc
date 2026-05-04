@@ -222,6 +222,12 @@ impl App {
                 self.last_result = Some(msg);
                 self.last_error = None;
             }
+            Some(&"clearhist") => {
+                self.history.clear();
+                let _ = self.history.save();
+                self.last_result = Some("History cleared".to_string());
+                self.last_error = None;
+            }
             Some(&"quit") | Some(&"exit") | Some(&"q") => {
                 self.running = false;
             }
