@@ -203,7 +203,7 @@ fn render_history(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
 fn render_vars(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     let vars_block = Block::default()
         .title(Line::from(vec![Span::styled(
-            " VARIABLES ",
+            " VARIABLES & FUNCTIONS ",
             Style::default().fg(theme::DIM),
         )]))
         .borders(Borders::ALL)
@@ -211,13 +211,26 @@ fn render_vars(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
 
     let mut lines = Vec::new();
 
+    // Collect and sort variables
     let mut vars: Vec<_> = app.user_vars.iter().collect();
     vars.sort_by(|a, b| a.0.cmp(b.0));
 
-    if vars.is_empty() {
+    // Collect and sort functions
+    let mut funcs: Vec<_> = app.env.iter_functions().collect();
+    funcs.sort_by(|a, b| a.0.cmp(b.0));
+
+    if vars.is_empty() && funcs.is_empty() {
         lines.push(Line::from(vec![Span::styled("  (empty)", theme::dim())]));
     } else {
-        let max_name_len = vars.iter().map(|(n, _)| n.len()).max().unwrap_or(4).min(12);
+        // Show variables first
+        let max_name_len = vars
+            .iter()
+            .map(|(n, _)| n.len())
+            .chain(funcs.iter().map(|(n, _)| n.len()))
+            .max()
+            .unwrap_or(4)
+            .min(12);
+
         for (name, value) in &vars {
             let display = crate::core::formatter::format_value(value);
             lines.push(Line::from(vec![
@@ -226,6 +239,18 @@ fn render_vars(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
                     theme::accent_dim(),
                 ),
                 Span::styled(display, theme::bright()),
+            ]));
+        }
+
+        // Show functions
+        for (name, func) in &funcs {
+            let params = func.params.join(", ");
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("  {:<width$} ", name, width = max_name_len),
+                    Style::default().fg(Color::Rgb(255, 105, 180)), // Pink for functions
+                ),
+                Span::styled(format!("({})", params), theme::dim()),
             ]));
         }
     }
