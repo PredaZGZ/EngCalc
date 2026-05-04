@@ -27,11 +27,37 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let history = History::load().unwrap_or_default();
+        let mut env = Environment::new();
+        let mut user_vars = HashMap::new();
+
+        // Restore the last workspace from history if available
+        if let Some(last_entry) = history.entries.last() {
+            // Restore variables
+            for (name, value) in &last_entry.workspace.variables {
+                let val = crate::core::value::Value::new(*value);
+                env.set(name.clone(), val.clone());
+                user_vars.insert(name.clone(), val);
+            }
+
+            // Restore functions
+            use crate::core::env::UserFunction;
+            use crate::core::parser;
+            for (_name, func_def) in &last_entry.workspace.functions {
+                if let Ok(body_expr) = parser::parse(&func_def.body) {
+                    let func = UserFunction {
+                        name: func_def.name.clone(),
+                        params: func_def.params.clone(),
+                        body: body_expr,
+                    };
+                    env.set_function(func);
+                }
+            }
+        }
 
         Self {
             input: InputBuffer::new(),
-            env: Environment::new(),
-            user_vars: HashMap::new(),
+            env,
+            user_vars,
             history,
             last_result: None,
             last_error: None,
