@@ -334,3 +334,28 @@ fn test_complex_expression() {
 fn test_nested_functions() {
     assert_approx("sin(cos(0))", 0.8414709848, 1e-10);
 }
+
+#[test]
+fn test_scientific_notation_uppercase() {
+    assert_approx("1E5", 100000.0, 1.0);
+}
+
+#[test]
+fn test_scientific_notation_lowercase() {
+    assert_approx("1.5e3", 1500.0, 1.0);
+}
+
+#[test]
+fn test_scientific_notation_negative_exp() {
+    assert_approx("1e-3", 0.001, 1e-10);
+}
+
+#[test]
+fn test_scientific_notation_positive_exp() {
+    assert_approx("2.5e+2", 250.0, 1.0);
+}
+
+#[test]
+fn test_scientific_notation_math() {
+    assert_approx("2e3 + 1e2", 2100.0, 1.0);
+}

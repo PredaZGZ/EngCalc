@@ -60,6 +60,24 @@ pub fn tokenize(input: &str) -> Result<Vec<SpannedToken>, LexerError> {
                 num_str.push(chars[pos]);
                 pos += 1;
             }
+            // Handle scientific notation: 6.022e23, 1e-5, 1E+10
+            if pos < len && (chars[pos] == 'e' || chars[pos] == 'E') {
+                num_str.push(chars[pos]);
+                pos += 1;
+                if pos < len && (chars[pos] == '+' || chars[pos] == '-') {
+                    num_str.push(chars[pos]);
+                    pos += 1;
+                }
+                let mut has_digit = false;
+                while pos < len && chars[pos].is_ascii_digit() {
+                    num_str.push(chars[pos]);
+                    pos += 1;
+                    has_digit = true;
+                }
+                if !has_digit {
+                    return Err(LexerError::InvalidNumber { position: start });
+                }
+            }
             let number: f64 = num_str
                 .parse()
                 .map_err(|_| LexerError::InvalidNumber { position: start })?;
