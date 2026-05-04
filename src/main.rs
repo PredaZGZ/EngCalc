@@ -38,7 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    // Clear screen and enter alternate screen to avoid compiler warnings showing
+    execute!(stdout, crossterm::terminal::Clear(crossterm::terminal::ClearType::All), EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     Terminal::new(backend)
 }
