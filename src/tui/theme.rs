@@ -1,35 +1,42 @@
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
 
-pub const TITLE_COLOR: Color = Color::Cyan;
-pub const INPUT_PROMPT_COLOR: Color = Color::Yellow;
-pub const RESULT_COLOR: Color = Color::Green;
-pub const ERROR_COLOR: Color = Color::Red;
-pub const HISTORY_HEADER_COLOR: Color = Color::Rgb(150, 150, 200);
-pub const VARS_HEADER_COLOR: Color = Color::Rgb(150, 150, 200);
-pub const FOOTER_COLOR: Color = Color::DarkGray;
-pub const BORDER_COLOR: Color = Color::DarkGray;
-pub const DEFAULT_BG: Color = Color::Rgb(30, 30, 46);
+pub const ACCENT: Color = Color::Cyan;
+pub const ACCENT_DIM: Color = Color::Rgb(100, 180, 255);
+pub const RESULT: Color = Color::Green;
+pub const ERROR: Color = Color::Rgb(255, 100, 100);
+pub const PROMPT: Color = Color::Rgb(250, 200, 100);
+pub const DIM: Color = Color::Rgb(90, 90, 120);
+pub const BRIGHT: Color = Color::White;
+pub const BORDER: Color = Color::Rgb(60, 60, 90);
 
-pub fn input_style() -> Style {
-    Style::default().fg(INPUT_PROMPT_COLOR)
+pub fn accent() -> Style {
+    Style::default().fg(ACCENT)
 }
 
-pub fn result_style() -> Style {
-    Style::default().fg(RESULT_COLOR)
+pub fn accent_dim() -> Style {
+    Style::default().fg(ACCENT_DIM)
 }
 
-pub fn error_style() -> Style {
-    Style::default().fg(ERROR_COLOR)
+pub fn result() -> Style {
+    Style::default().fg(RESULT).add_modifier(Modifier::BOLD)
 }
 
-pub fn footer_style() -> Style {
-    Style::default().fg(FOOTER_COLOR)
+pub fn error() -> Style {
+    Style::default().fg(ERROR)
 }
 
-pub fn border_style() -> Style {
-    Style::default().fg(BORDER_COLOR)
+pub fn prompt() -> Style {
+    Style::default().fg(PROMPT)
 }
 
-pub fn title_style() -> Style {
-    Style::default().fg(TITLE_COLOR)
+pub fn dim() -> Style {
+    Style::default().fg(DIM)
+}
+
+pub fn bright() -> Style {
+    Style::default().fg(BRIGHT)
+}
+
+pub fn border() -> Style {
+    Style::default().fg(BORDER)
 }

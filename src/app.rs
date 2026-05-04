@@ -3,49 +3,63 @@ use crate::core::formatter;
 use crate::storage::history::History;
 use crate::tui::events::Action;
 use crate::tui::input::InputBuffer;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum AppMode {
-    Normal,
-    Command,
-    Help,
-}
+use std::collections::HashMap;
 
 pub struct App {
     pub input: InputBuffer,
     pub env: Environment,
+    pub user_vars: HashMap<String, crate::core::value::Value>,
     pub history: History,
     pub last_result: Option<String>,
     pub last_error: Option<String>,
-    pub mode: AppMode,
     pub history_index: Option<usize>,
     pub running: bool,
+    pub is_command_mode: bool,
+    pub show_consts: bool,
+    pub show_help: bool,
 }
 
 impl App {
     pub fn new() -> Self {
         let history = History::load().unwrap_or_default();
 
-        let mut env = Environment::new();
-
-        // Load pre-defined constants as variables
-        for (name, _desc, val) in crate::core::constants::list() {
-            env.set(name, crate::core::value::Value::new(val));
-        }
-
         Self {
             input: InputBuffer::new(),
-            env,
+            env: Environment::new(),
+            user_vars: HashMap::new(),
             history,
             last_result: None,
             last_error: None,
-            mode: AppMode::Normal,
             history_index: None,
             running: true,
+            is_command_mode: false,
+            show_consts: false,
+            show_help: false,
         }
     }
 
     pub fn handle_action(&mut self, action: Action) {
+        if matches!(action, Action::ShowHelp) {
+            self.show_help = !self.show_help;
+            return;
+        }
+
+        if matches!(action, Action::ShowConsts) {
+            self.show_consts = !self.show_consts;
+            return;
+        }
+
+        if self.show_help || self.show_consts {
+            if matches!(action, Action::Quit | Action::ShowHelp | Action::ShowConsts) {
+                self.show_help = false;
+                self.show_consts = false;
+            }
+            if matches!(action, Action::Quit) {
+                self.running = false;
+            }
+            return;
+        }
+
         match action {
             Action::Quit => {
                 self.running = false;
@@ -88,11 +102,19 @@ impl App {
                 self.input.delete_forward();
             }
             Action::InputChar(c) => {
+                if c == ':' && self.input.is_empty() {
+                    self.is_command_mode = true;
+                }
                 self.input.insert_char(c);
             }
             Action::CommandMode => {
+                if !self.input.is_empty() {
+                    self.input.clear();
+                }
+                self.is_command_mode = true;
                 self.input.insert_char(':');
             }
+            _ => {}
         }
     }
 
@@ -100,6 +122,7 @@ impl App {
         let expr_str = self.input.content.trim().to_string();
 
         if expr_str.is_empty() {
+            self.is_command_mode = false;
             return;
         }
 
@@ -110,12 +133,12 @@ impl App {
 
         match crate::core::parser::parse(&expr_str) {
             Ok(ast) => {
-                // If assignment, evaluate and store
                 if let Some((name, val_expr)) = ast.as_assignment() {
                     let name = name.to_string();
                     match val_expr.eval(&self.env) {
                         Ok(value) => {
                             self.env.set(name.clone(), value.clone());
+                            self.user_vars.insert(name.clone(), value.clone());
                             let formatted = formatter::format_assignment(&name, &value);
                             self.last_result = Some(formatted.clone());
                             self.last_error = None;
@@ -157,46 +180,39 @@ impl App {
         }
 
         self.input.clear();
+        self.is_command_mode = false;
         self.history_index = None;
         let _ = self.history.save();
     }
 
     fn handle_command(&mut self, cmd: &str) {
+        self.is_command_mode = false;
         let parts: Vec<&str> = cmd.split_whitespace().collect();
         match parts.first() {
             Some(&"help") | Some(&"h") | Some(&"?") => {
-                self.mode = AppMode::Help;
-                self.last_result = Some(HELP_TEXT.to_string());
-                self.last_error = None;
+                self.show_help = true;
             }
             Some(&"clear") | Some(&"cls") => {
                 self.clear();
             }
             Some(&"vars") => {
                 let mut msg = String::from("Variables:\n");
-                for (name, value) in self.env.iter() {
-                    msg.push_str(&format!(
-                        "  {} = {}\n",
-                        name,
-                        formatter::format_value(value)
-                    ));
-                }
-                msg.push_str("\nConstants:\n");
-                for (name, _desc, val) in crate::core::constants::list() {
-                    let v = crate::core::value::Value::new(val);
-                    msg.push_str(&format!("  {} ≈ {}\n", name, formatter::format_value(&v)));
+                if self.user_vars.is_empty() {
+                    msg.push_str("  (none yet)\n");
+                } else {
+                    for (name, value) in &self.user_vars {
+                        msg.push_str(&format!(
+                            "  {} = {}\n",
+                            name,
+                            formatter::format_value(value)
+                        ));
+                    }
                 }
                 self.last_result = Some(msg);
                 self.last_error = None;
             }
             Some(&"consts") | Some(&"constants") => {
-                let mut msg = String::from("Constants:\n");
-                for (name, _desc, val) in crate::core::constants::list() {
-                    let v = crate::core::value::Value::new(val);
-                    msg.push_str(&format!("  {} ≈ {}\n", name, formatter::format_value(&v)));
-                }
-                self.last_result = Some(msg);
-                self.last_error = None;
+                self.show_consts = true;
             }
             Some(&"history") | Some(&"hist") => {
                 let mut msg = String::from("History:\n");
@@ -251,6 +267,7 @@ impl App {
                 if idx + 1 >= exprs.len() {
                     self.history_index = None;
                     self.input.clear();
+                    self.is_command_mode = false;
                 } else {
                     self.history_index = Some(idx + 1);
                     self.input.content = exprs[idx + 1].to_string();
@@ -278,7 +295,6 @@ impl App {
                 let last_char = text.chars().nth(cursor - 1);
                 if let Some(c) = last_char {
                     if c.is_alphanumeric() || c == '_' {
-                        // find the start of current word
                         let mut ws = 0;
                         for (i, c) in text.char_indices().take(cursor) {
                             if !c.is_alphanumeric() && c != '_' {
@@ -313,7 +329,7 @@ impl App {
             }
         }
 
-        for (var_name, _) in self.env.iter() {
+        for (var_name, _) in &self.user_vars {
             if var_name.starts_with(prefix) && var_name.len() > prefix.len() {
                 suggestions.push(var_name.clone());
             }
@@ -346,6 +362,7 @@ impl App {
         self.last_result = None;
         self.last_error = None;
         self.input.clear();
+        self.is_command_mode = false;
         self.history_index = None;
     }
 }
@@ -355,49 +372,3 @@ impl Default for App {
         Self::new()
     }
 }
-
-const HELP_TEXT: &str = r#"engcalc - Scientific Calculator
-
-KEYBINDINGS:
-  Enter       Evaluate expression
-  Esc         Quit application
-  Ctrl+C      Quit application
-  Ctrl+L      Clear screen
-  Ctrl+U      Clear input
-  ↑/↓         Navigate history
-  Tab         Autocomplete
-  ←/→         Move cursor
-  Home/End    Go to start/end
-  Backspace   Delete before cursor
-  Delete      Delete after cursor
-  :           Start command
-
-COMMANDS:
-  :help       Show this help
-  :clear      Clear screen
-  :vars       Show variables and constants
-  :consts     Show constants
-  :history    Show calculation history
-  :quit       Exit application
-
-OPERATORS:
-  + - * / ^ %   Arithmetic
-  -x            Unary minus
-  2x 2(3+4)     Implicit multiplication
-
-FUNCTIONS:
-  sin cos tan asin acos atan
-  sqrt ln log log10 exp
-  abs floor ceil round min max pow
-
-EXAMPLES:
-  2 + 3 * 4        = 14
-  (2 + 3) * 4      = 20
-  2^3^2            = 512
-  sin(pi / 2)      = 1
-  x = 5
-  2x + 1           = 11
-  10 km in m       = 10000
-  1 h in s         = 3600
-  5 bar in Pa      = 500000
-"#;

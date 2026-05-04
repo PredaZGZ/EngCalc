@@ -4,34 +4,36 @@ pub struct AppLayout {
     pub title_area: Rect,
     pub input_area: Rect,
     pub result_area: Rect,
+    pub main_area: Rect,
     pub history_area: Rect,
     pub vars_area: Rect,
     pub footer_area: Rect,
 }
 
 pub fn build_layout(area: Rect) -> AppLayout {
-    let chunks = Layout::default()
+    let main = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // title
-            Constraint::Length(3), // input
-            Constraint::Length(3), // result
-            Constraint::Min(5),    // main: history + vars
-            Constraint::Length(2), // footer
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(6),
+            Constraint::Length(1),
         ])
         .split(area);
 
-    let main_chunks = Layout::default()
+    let side = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-        .split(chunks[3]);
+        .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
+        .split(main[3]);
 
     AppLayout {
-        title_area: chunks[0],
-        input_area: chunks[1],
-        result_area: chunks[2],
-        history_area: main_chunks[0],
-        vars_area: main_chunks[1],
-        footer_area: chunks[4],
+        title_area: main[0],
+        input_area: main[1],
+        result_area: main[2],
+        main_area: main[3],
+        history_area: side[0],
+        vars_area: side[1],
+        footer_area: main[4],
     }
 }

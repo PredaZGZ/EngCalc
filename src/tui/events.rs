@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::time::Duration;
 
 pub enum AppEvent {
@@ -10,7 +10,12 @@ pub enum AppEvent {
 pub fn poll_event(timeout: Duration) -> Result<AppEvent, std::io::Error> {
     if event::poll(timeout)? {
         match event::read()? {
-            Event::Key(key) => Ok(AppEvent::Key(key)),
+            Event::Key(key) => {
+                if key.kind == KeyEventKind::Release {
+                    return Ok(AppEvent::Tick);
+                }
+                Ok(AppEvent::Key(key))
+            }
             Event::Resize(w, h) => Ok(AppEvent::Resize(w, h)),
             _ => Ok(AppEvent::Tick),
         }
@@ -20,40 +25,36 @@ pub fn poll_event(timeout: Duration) -> Result<AppEvent, std::io::Error> {
 }
 
 pub fn handle_key(key: KeyEvent) -> Option<Action> {
-    match (key.modifiers, key.code) {
-        (_, KeyCode::Esc) => Some(Action::Quit),
-        (KeyModifiers::CONTROL, KeyCode::Char('c')) => Some(Action::Quit),
-        (KeyModifiers::CONTROL, KeyCode::Char('l')) => Some(Action::ClearScreen),
-        (_, KeyCode::Enter) => Some(Action::Eval),
-        (_, KeyCode::Up) => Some(Action::HistoryUp),
-        (_, KeyCode::Down) => Some(Action::HistoryDown),
-        (_, KeyCode::Tab) => Some(Action::Autocomplete),
-        (KeyModifiers::CONTROL, KeyCode::Char('u')) => Some(Action::ClearInput),
-        (_, KeyCode::Left) => Some(Action::CursorLeft),
-        (_, KeyCode::Right) => Some(Action::CursorRight),
-        (_, KeyCode::Home) => Some(Action::CursorHome),
-        (_, KeyCode::End) => Some(Action::CursorEnd),
-        (_, KeyCode::Backspace) => Some(Action::DeleteBackward),
-        (_, KeyCode::Delete) => Some(Action::DeleteForward),
-        (_, KeyCode::Char('f')) if key.modifiers == KeyModifiers::CONTROL => {
-            Some(Action::CursorRight)
-        }
-        (_, KeyCode::Char('b')) if key.modifiers == KeyModifiers::CONTROL => {
-            Some(Action::CursorLeft)
-        }
-        (_, KeyCode::Char('a')) if key.modifiers == KeyModifiers::CONTROL => {
-            Some(Action::CursorHome)
-        }
-        (_, KeyCode::Char('e')) if key.modifiers == KeyModifiers::CONTROL => {
-            Some(Action::CursorEnd)
-        }
-        (_, KeyCode::Char(':')) => Some(Action::CommandMode),
-        (_, KeyCode::Char(c)) => Some(Action::InputChar(c)),
+    let ctrl = key.modifiers == KeyModifiers::CONTROL;
+
+    match key.code {
+        KeyCode::Esc => Some(Action::Quit),
+        KeyCode::Char('c') if ctrl => Some(Action::Quit),
+        KeyCode::Enter => Some(Action::Eval),
+        KeyCode::Up => Some(Action::HistoryUp),
+        KeyCode::Down => Some(Action::HistoryDown),
+        KeyCode::Tab => Some(Action::Autocomplete),
+        KeyCode::Char('l') if ctrl => Some(Action::ClearScreen),
+        KeyCode::Char('u') if ctrl => Some(Action::ClearInput),
+        KeyCode::Left => Some(Action::CursorLeft),
+        KeyCode::Right => Some(Action::CursorRight),
+        KeyCode::Home => Some(Action::CursorHome),
+        KeyCode::End => Some(Action::CursorEnd),
+        KeyCode::Backspace => Some(Action::DeleteBackward),
+        KeyCode::Delete => Some(Action::DeleteForward),
+        KeyCode::F(1) => Some(Action::ShowHelp),
+        KeyCode::F(2) => Some(Action::ShowConsts),
+        KeyCode::Char('f') if ctrl => Some(Action::CursorRight),
+        KeyCode::Char('b') if ctrl => Some(Action::CursorLeft),
+        KeyCode::Char('a') if ctrl => Some(Action::CursorHome),
+        KeyCode::Char('e') if ctrl => Some(Action::CursorEnd),
+        KeyCode::Char(':') => Some(Action::CommandMode),
+        KeyCode::Char(c) => Some(Action::InputChar(c)),
         _ => None,
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Action {
     Quit,
     Eval,
@@ -62,6 +63,8 @@ pub enum Action {
     HistoryUp,
     HistoryDown,
     Autocomplete,
+    ShowHelp,
+    ShowConsts,
     CursorLeft,
     CursorRight,
     CursorHome,
