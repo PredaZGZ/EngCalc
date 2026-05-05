@@ -123,7 +123,7 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
         return;
     }
 
-    // Build simple text content
+    // Build simple text content with explicit newlines
     let mut content = String::new();
     let visible_count = 4usize;
     let total = suggestions.len();
@@ -144,9 +144,13 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
         let display = suggestion.split('|').next().unwrap_or(suggestion);
         
         if i == selected {
-            content.push_str(&format!("▸ {}\n", display));
+            content.push_str("> ");
+            content.push_str(display);
+            content.push('\n');
         } else {
-            content.push_str(&format!("  {}\n", display));
+            content.push_str("  ");
+            content.push_str(display);
+            content.push('\n');
         }
     }
 
@@ -166,15 +170,19 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
 
     let block = Block::default()
         .title(format!(" Suggestions ({}) ", total))
-        .title_style(Style::default().fg(theme::ACCENT))
+        .title_style(Style::default().fg(Color::Yellow))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme::ACCENT))
-        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
+        .border_style(Style::default().fg(Color::Yellow))
+        .style(Style::default().bg(Color::DarkGray));
 
-    // Use simple Paragraph with string content
-    let para = Paragraph::new(content)
+    // Split content into lines for proper rendering
+    let lines: Vec<Line> = content.lines()
+        .map(|line| Line::from(Span::styled(line.to_string(), Style::default().fg(Color::White))))
+        .collect();
+
+    let para = Paragraph::new(Text::from(lines))
         .block(block)
-        .style(Style::default().fg(Color::White).bg(Color::Rgb(30, 30, 40)));
+        .style(Style::default().bg(Color::DarkGray));
     
     f.render_widget(para, popup_rect);
 }
@@ -246,14 +254,19 @@ fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16)
     
     let block = Block::default()
         .title(" Help ")
-        .title_style(Style::default().fg(theme::ACCENT))
+        .title_style(Style::default().fg(Color::Yellow))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme::ACCENT))
-        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
+        .border_style(Style::default().fg(Color::Yellow))
+        .style(Style::default().bg(Color::DarkGray));
 
-    let para = Paragraph::new(content)
+    // Split content into lines for proper rendering
+    let lines: Vec<Line> = content.lines()
+        .map(|line| Line::from(Span::styled(line.to_string(), Style::default().fg(Color::White))))
+        .collect();
+
+    let para = Paragraph::new(Text::from(lines))
         .block(block)
-        .style(Style::default().fg(Color::White).bg(Color::Rgb(30, 30, 40)));
+        .style(Style::default().bg(Color::DarkGray));
     
     f.render_widget(para, popup_rect);
 }
