@@ -105,13 +105,12 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
         f.set_cursor_position(Position::new(cursor_x, cursor_y));
     }
 
-    // Render autocomplete popup if visible
+    // Render autocomplete popup if visible (takes priority)
     if app.show_autocomplete && !app.autocomplete_suggestions.is_empty() {
         render_autocomplete_popup(f, app, cursor_x, cursor_y);
     }
-
-    // Render signature help if visible
-    if app.show_signature_help {
+    // Only show signature help if autocomplete is NOT visible
+    else if app.show_signature_help {
         render_signature_help(f, app, cursor_x, cursor_y);
     }
 }
@@ -120,45 +119,15 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
     let suggestions = &app.autocomplete_suggestions;
     let selected = app.autocomplete_selected;
 
-    // Extra safety check - don't render if no suggestions
     if suggestions.is_empty() {
         return;
     }
 
-    // Parse suggestions to get max width for signature column
-    let parsed: Vec<(&str, &str)> = suggestions.iter()
-        .map(|s| {
-            let parts: Vec<&str> = s.splitn(2, '|').collect();
-            if parts.len() == 2 {
-                (parts[0], parts[1])
-            } else {
-                (s.as_str(), "")
-            }
-        })
-        .collect();
-
-    let max_sig_width = parsed.iter().map(|(sig, _)| sig.len()).max().unwrap_or(10);
-
-    // Calculate popup dimensions - wider to show signature and description
-    let popup_width = (max_sig_width + 30).min(60) as u16 + 4;
-    let popup_height = suggestions.len().min(6) as u16 + 2;
-
-    // Position popup below the cursor
-    let area = f.area();
-    let popup_x = cursor_x.min(area.width.saturating_sub(popup_width));
-    let popup_y = if cursor_y + 1 + popup_height > area.height {
-        cursor_y.saturating_sub(popup_height + 1)
-    } else {
-        cursor_y + 1
-    };
-
-    let popup_rect = Rect::new(popup_x, popup_y, popup_width, popup_height);
-
-    // Build popup content
-    let mut lines = Vec::new();
+    // Build simple text lines
+    let mut content = String::new();
     let visible_count = 4usize;
-
     let total = suggestions.len();
+    
     let window_start = if total <= visible_count {
         0
     } else if selected < visible_count / 2 {
@@ -171,45 +140,37 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
     let window_end = (window_start + visible_count).min(total);
 
     for i in window_start..window_end {
-        let (signature, description) = parsed[i];
-        let is_selected = i == selected;
-
-        let arrow = if is_selected { "›" } else { " " };
-        let sig_style = if is_selected {
-            Style::default().fg(theme::ACCENT).add_modifier(Modifier::BOLD)
+        let suggestion = &suggestions[i];
+        // Split to get just the signature part before '|'
+        let display = suggestion.split('|').next().unwrap_or(suggestion);
+        
+        if i == selected {
+            content.push_str(&format!("> {}\n", display));
         } else {
-            Style::default().fg(Color::Rgb(100, 200, 255))
-        };
-        let desc_style = if is_selected {
-            Style::default().fg(theme::ACCENT)
-        } else {
-            Style::default().fg(Color::Gray)
-        };
-
-        // Truncate description if too long
-        let max_desc_len = popup_width as usize - max_sig_width - 5;
-        let desc_display = if description.len() > max_desc_len {
-            format!("{}...", &description[..max_desc_len.saturating_sub(3)])
-        } else {
-            description.to_string()
-        };
-
-        lines.push(Line::from(vec![
-            Span::styled(format!(" {} ", arrow), Style::default().fg(theme::ACCENT)),
-            Span::styled(format!("{:width$}", signature, width = max_sig_width), sig_style),
-            Span::styled(" — ", Style::default().fg(Color::DarkGray)),
-            Span::styled(desc_display, desc_style),
-        ]));
+            content.push_str(&format!("  {}\n", display));
+        }
     }
 
     if total > visible_count {
-        lines.push(Line::from(vec![Span::styled(
-            format!("   ... {} more", total - window_end),
-            theme::dim(),
-        )]));
+        content.push_str(&format!("  ... {} more\n", total - window_end));
     }
 
-    // Clear and render popup
+    // Fixed dimensions
+    let popup_width = 35u16;
+    let popup_height = suggestions.len().min(visible_count) as u16 + 2;
+
+    // Position popup
+    let area = f.area();
+    let popup_x = cursor_x.min(area.width.saturating_sub(popup_width));
+    let popup_y = if cursor_y + popup_height > area.height {
+        cursor_y.saturating_sub(popup_height + 1)
+    } else {
+        cursor_y + 1
+    };
+
+    let popup_rect = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    // Clear and render
     f.render_widget(Clear, popup_rect);
 
     let block = Block::default()
@@ -217,7 +178,7 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
         .border_style(theme::accent())
         .style(Style::default().bg(Color::Rgb(40, 40, 50)));
 
-    let para = Paragraph::new(Text::from(lines)).block(block);
+    let para = Paragraph::new(content).block(block);
     f.render_widget(para, popup_rect);
 }
 
