@@ -173,17 +173,13 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
         .title_style(Style::default().fg(Color::Yellow))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow))
-        .style(Style::default().bg(Color::DarkGray));
+        .style(Style::default().bg(Color::Black));
 
-    // Split content into lines for proper rendering
     let lines: Vec<Line> = content.lines()
         .map(|line| Line::from(Span::styled(line.to_string(), Style::default().fg(Color::White))))
         .collect();
 
-    let para = Paragraph::new(Text::from(lines))
-        .block(block)
-        .style(Style::default().bg(Color::DarkGray));
-    
+    let para = Paragraph::new(Text::from(lines)).block(block);
     f.render_widget(para, popup_rect);
 }
 
@@ -257,17 +253,13 @@ fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16)
         .title_style(Style::default().fg(Color::Yellow))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow))
-        .style(Style::default().bg(Color::DarkGray));
+        .style(Style::default().bg(Color::Black));
 
-    // Split content into lines for proper rendering
     let lines: Vec<Line> = content.lines()
         .map(|line| Line::from(Span::styled(line.to_string(), Style::default().fg(Color::White))))
         .collect();
 
-    let para = Paragraph::new(Text::from(lines))
-        .block(block)
-        .style(Style::default().bg(Color::DarkGray));
-    
+    let para = Paragraph::new(Text::from(lines)).block(block);
     f.render_widget(para, popup_rect);
 }
 
