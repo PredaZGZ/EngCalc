@@ -26,6 +26,10 @@ pub struct App {
     pub show_autocomplete: bool,
     pub autocomplete_suggestions: Vec<String>,
     pub autocomplete_selected: usize,
+    // Signature help state (shows when typing function arguments)
+    pub show_signature_help: bool,
+    pub signature_help_func: Option<String>,
+    pub signature_help_param_index: usize,
 }
 
 impl App {
@@ -78,7 +82,51 @@ impl App {
             show_autocomplete: false,
             autocomplete_suggestions: Vec::new(),
             autocomplete_selected: 0,
+            show_signature_help: false,
+            signature_help_func: None,
+            signature_help_param_index: 0,
         }
+    }
+
+    /// Update signature help based on current input (detect function calls)
+    pub fn update_signature_help(&mut self) {
+        let content = self.input.content();
+        let cursor = self.input.cursor_pos();
+
+        // Look backwards from cursor to find function name before an opening paren
+        let before_cursor = &content[..cursor.min(content.len())];
+
+        // Find the last opening paren before cursor
+        if let Some(paren_pos) = before_cursor.rfind('(') {
+            // Extract what comes before the paren (should be function name)
+            let before_paren = &content[..paren_pos];
+
+            // Find the start of the function name
+            let name_start = before_paren
+                .rfind(|c: char| !c.is_alphanumeric() && c != '_')
+                .map(|i| i + 1)
+                .unwrap_or(0);
+
+            let func_name = &before_paren[name_start..];
+
+            if !func_name.is_empty() {
+                // Check if this is a known function
+                if let Some(func_info) = crate::core::functions::get_function_info(func_name) {
+                    // Count which parameter we're on by counting commas after the paren
+                    let after_paren = &content[paren_pos + 1..cursor.min(content.len())];
+                    let param_index = after_paren.chars().filter(|&c| c == ',').count();
+
+                    self.show_signature_help = true;
+                    self.signature_help_func = Some(func_info.name.to_string());
+                    self.signature_help_param_index = param_index;
+                    return;
+                }
+            }
+        }
+
+        // No function call detected
+        self.show_signature_help = false;
+        self.signature_help_func = None;
     }
 
     /// Update autocomplete suggestions based on current input
@@ -100,36 +148,39 @@ impl App {
             // Match against built-in functions
             for func in crate::core::functions::list_functions() {
                 if func.name.to_lowercase().starts_with(&word_lower) {
-                    suggestions.push(format!("{}({})", func.name, func.params));
+                    suggestions.push((func.name.to_string(), format!("{}({})", func.name, func.params), func.description.to_string()));
                 }
             }
             
             // Match against user-defined functions
             for (name, func) in self.env.iter_functions() {
-                if name.to_lowercase().starts_with(&word_lower) && !suggestions.iter().any(|s| s.starts_with(name)) {
-                    suggestions.push(format!("{}({})", name, func.params.join(", ")));
+                if name.to_lowercase().starts_with(&word_lower) {
+                    suggestions.push((name.clone(), format!("{}({})", name, func.params.join(", ")), "User-defined function".to_string()));
                 }
             }
             
             // Match against variables
-            for name in self.user_vars.keys() {
-                if name.to_lowercase().starts_with(&word_lower) && !suggestions.iter().any(|s| s.starts_with(name)) {
-                    suggestions.push(name.clone());
+            for (name, value) in &self.user_vars {
+                if name.to_lowercase().starts_with(&word_lower) {
+                    let value_str = crate::core::formatter::format_value(value);
+                    suggestions.push((name.clone(), name.clone(), format!("Variable = {}", value_str)));
                 }
             }
             
             // Match against constants
             for c in crate::core::constants::list() {
-                if c.name.to_lowercase().starts_with(&word_lower) && !suggestions.iter().any(|s| s.starts_with(c.name)) {
-                    suggestions.push(c.name.to_string());
+                if c.name.to_lowercase().starts_with(&word_lower) {
+                    suggestions.push((c.name.to_string(), c.name.to_string(), format!("Constant = {} {}", c.value, c.units)));
                 }
             }
             
-            suggestions.sort();
-            suggestions.dedup();
+            // Convert to display strings
+            let display_suggestions: Vec<String> = suggestions.into_iter()
+                .map(|(name, signature, description)| format!("{}|{}", signature, description))
+                .collect();
             
-            if !suggestions.is_empty() {
-                self.autocomplete_suggestions = suggestions;
+            if !display_suggestions.is_empty() {
+                self.autocomplete_suggestions = display_suggestions;
                 self.show_autocomplete = true;
                 self.autocomplete_selected = 0;
             } else {
@@ -143,7 +194,7 @@ impl App {
             self.autocomplete_suggestions.clear();
         }
     }
-    
+
     /// Accept the currently selected autocomplete suggestion
     pub fn accept_autocomplete(&mut self) {
         if !self.show_autocomplete || self.autocomplete_suggestions.is_empty() {
@@ -157,19 +208,23 @@ impl App {
             .map(|i| i + 1)
             .unwrap_or(0);
         
-        let suggestion = &self.autocomplete_suggestions[self.autocomplete_selected];
+        // Extract just the signature part (before '|')
+        let full_suggestion = &self.autocomplete_suggestions[self.autocomplete_selected];
+        let signature = full_suggestion.split('|').next().unwrap_or(full_suggestion);
         
         // Replace the current word with the suggestion
         let new_content = format!("{}{}{}", 
             &content[..word_start],
-            suggestion,
+            signature,
             &content[cursor..]
         );
         
-        let new_cursor = word_start + suggestion.len();
+        let new_cursor = word_start + signature.len();
         self.input.set_content(new_content);
         self.input.set_cursor_pos(new_cursor);
         self.show_autocomplete = false;
+        // Check if we just completed a function name, prepare for signature help
+        self.update_signature_help();
     }
     
     /// Navigate autocomplete suggestions
@@ -238,12 +293,15 @@ impl App {
                 self.running = false;
             }
             Action::Eval => {
+                self.show_signature_help = false;
                 self.eval_input();
             }
             Action::ClearScreen => {
+                self.show_signature_help = false;
                 self.clear();
             }
             Action::ClearInput => {
+                self.show_signature_help = false;
                 self.input.clear();
                 self.history_index = None;
             }
@@ -289,10 +347,12 @@ impl App {
             Action::DeleteBackward => {
                 self.input.delete_char();
                 self.update_autocomplete();
+                self.update_signature_help();
             }
             Action::DeleteForward => {
                 self.input.delete_forward();
                 self.update_autocomplete();
+                self.update_signature_help();
             }
             Action::InputChar(c) => {
                 if c == ':' && self.input.is_empty() {
@@ -300,6 +360,7 @@ impl App {
                 }
                 self.input.insert_char(c);
                 self.update_autocomplete();
+                self.update_signature_help();
             }
             Action::CommandMode => {
                 if !self.input.is_empty() {

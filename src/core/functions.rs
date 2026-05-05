@@ -8,12 +8,18 @@ pub enum FuncError {
     InvalidArg(String),
 }
 
+pub struct ParamInfo {
+    pub name: &'static str,
+    pub description: &'static str,
+}
+
 pub struct FunctionInfo {
     pub name: &'static str,
     pub params: &'static str,
     pub description: &'static str,
     pub example: &'static str,
     pub category: &'static str,
+    pub params_detail: Vec<ParamInfo>,
 }
 
 pub fn list_functions() -> Vec<FunctionInfo> {
@@ -25,6 +31,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Sine function (x in radians)",
             example: "sin(pi/2) = 1",
             category: "Trigonometry",
+            params_detail: vec![ParamInfo { name: "x", description: "Angle in radians" }],
         },
         FunctionInfo {
             name: "cos",
@@ -32,6 +39,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Cosine function (x in radians)",
             example: "cos(0) = 1",
             category: "Trigonometry",
+            params_detail: vec![ParamInfo { name: "x", description: "Angle in radians" }],
         },
         FunctionInfo {
             name: "tan",
@@ -39,6 +47,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Tangent function (x in radians)",
             example: "tan(pi/4) = 1",
             category: "Trigonometry",
+            params_detail: vec![ParamInfo { name: "x", description: "Angle in radians" }],
         },
         FunctionInfo {
             name: "asin",
@@ -46,6 +55,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Arc sine (inverse sine), returns radians",
             example: "asin(1) = 1.5708... (pi/2)",
             category: "Trigonometry",
+            params_detail: vec![ParamInfo { name: "x", description: "Sine value in range [-1, 1]" }],
         },
         FunctionInfo {
             name: "acos",
@@ -53,6 +63,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Arc cosine (inverse cosine), returns radians",
             example: "acos(1) = 0",
             category: "Trigonometry",
+            params_detail: vec![ParamInfo { name: "x", description: "Cosine value in range [-1, 1]" }],
         },
         FunctionInfo {
             name: "atan",
@@ -60,6 +71,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Arc tangent (inverse tangent), returns radians",
             example: "atan(1) = 0.7854... (pi/4)",
             category: "Trigonometry",
+            params_detail: vec![ParamInfo { name: "x", description: "Tangent value" }],
         },
         // Math functions
         FunctionInfo {
@@ -68,6 +80,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Square root of x",
             example: "sqrt(16) = 4",
             category: "Math",
+            params_detail: vec![ParamInfo { name: "x", description: "Non-negative number" }],
         },
         FunctionInfo {
             name: "ln",
@@ -75,6 +88,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Natural logarithm (base e)",
             example: "ln(e) = 1",
             category: "Math",
+            params_detail: vec![ParamInfo { name: "x", description: "Positive number" }],
         },
         FunctionInfo {
             name: "log",
@@ -82,6 +96,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Base-10 logarithm",
             example: "log(100) = 2",
             category: "Math",
+            params_detail: vec![ParamInfo { name: "x", description: "Positive number" }],
         },
         FunctionInfo {
             name: "log10",
@@ -89,6 +104,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Base-10 logarithm (same as log)",
             example: "log10(1000) = 3",
             category: "Math",
+            params_detail: vec![ParamInfo { name: "x", description: "Positive number" }],
         },
         FunctionInfo {
             name: "exp",
@@ -96,6 +112,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Exponential function e^x",
             example: "exp(1) = 2.718... (e)",
             category: "Math",
+            params_detail: vec![ParamInfo { name: "x", description: "Exponent value" }],
         },
         FunctionInfo {
             name: "abs",
@@ -103,6 +120,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Absolute value (magnitude without sign)",
             example: "abs(-5) = 5",
             category: "Math",
+            params_detail: vec![ParamInfo { name: "x", description: "Any number" }],
         },
         // Rounding functions
         FunctionInfo {
@@ -111,6 +129,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Round down to nearest integer",
             example: "floor(3.7) = 3",
             category: "Rounding",
+            params_detail: vec![ParamInfo { name: "x", description: "Number to round down" }],
         },
         FunctionInfo {
             name: "ceil",
@@ -118,6 +137,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Round up to nearest integer",
             example: "ceil(3.2) = 4",
             category: "Rounding",
+            params_detail: vec![ParamInfo { name: "x", description: "Number to round up" }],
         },
         FunctionInfo {
             name: "round",
@@ -125,6 +145,7 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Round to nearest integer",
             example: "round(3.5) = 4",
             category: "Rounding",
+            params_detail: vec![ParamInfo { name: "x", description: "Number to round" }],
         },
         // Comparison functions
         FunctionInfo {
@@ -133,6 +154,10 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Minimum of two values",
             example: "min(5, 3) = 3",
             category: "Comparison",
+            params_detail: vec![
+                ParamInfo { name: "a", description: "First value" },
+                ParamInfo { name: "b", description: "Second value" },
+            ],
         },
         FunctionInfo {
             name: "max",
@@ -140,6 +165,10 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Maximum of two values",
             example: "max(5, 3) = 5",
             category: "Comparison",
+            params_detail: vec![
+                ParamInfo { name: "a", description: "First value" },
+                ParamInfo { name: "b", description: "Second value" },
+            ],
         },
         // Power function
         FunctionInfo {
@@ -148,6 +177,10 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Raise base to the power of exp",
             example: "pow(2, 3) = 8 (same as 2^3)",
             category: "Math",
+            params_detail: vec![
+                ParamInfo { name: "base", description: "Base number" },
+                ParamInfo { name: "exp", description: "Exponent" },
+            ],
         },
         // Integration functions
         FunctionInfo {
@@ -156,6 +189,12 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Numerical integration using trapezoidal rule",
             example: "trapz(x^2, 0, 1, 100) approximates integral of x² from 0 to 1",
             category: "Integration",
+            params_detail: vec![
+                ParamInfo { name: "f", description: "Function to integrate (expression or function name)" },
+                ParamInfo { name: "a", description: "Lower bound of integration" },
+                ParamInfo { name: "b", description: "Upper bound of integration" },
+                ParamInfo { name: "n", description: "Number of intervals (higher = more accurate)" },
+            ],
         },
         FunctionInfo {
             name: "simpson",
@@ -163,6 +202,12 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Numerical integration using Simpson's rule (n must be even)",
             example: "simpson(x^2, 0, 1, 100) = 0.333... (exact for quadratics)",
             category: "Integration",
+            params_detail: vec![
+                ParamInfo { name: "f", description: "Function to integrate" },
+                ParamInfo { name: "a", description: "Lower bound" },
+                ParamInfo { name: "b", description: "Upper bound" },
+                ParamInfo { name: "n", description: "Number of intervals (must be even)" },
+            ],
         },
         FunctionInfo {
             name: "rkf45",
@@ -170,6 +215,13 @@ pub fn list_functions() -> Vec<FunctionInfo> {
             description: "Adaptive integration using Runge-Kutta-Fehlberg method",
             example: "rkf45(sin(x), 0, pi) = 2.0 (high precision)",
             category: "Integration",
+            params_detail: vec![
+                ParamInfo { name: "f", description: "Function to integrate" },
+                ParamInfo { name: "a", description: "Lower bound" },
+                ParamInfo { name: "b", description: "Upper bound" },
+                ParamInfo { name: "tol", description: "Tolerance (optional, default 1e-6)" },
+                ParamInfo { name: "max_steps", description: "Maximum iterations (optional)" },
+            ],
         },
     ]
 }
