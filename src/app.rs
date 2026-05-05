@@ -145,38 +145,54 @@ impl App {
             let mut suggestions = Vec::new();
             let word_lower = current_word.to_lowercase();
             
-            // Match against built-in functions
+            // Match against built-in functions - search for contains, prioritize starts_with
             for func in crate::core::functions::list_functions() {
-                if func.name.to_lowercase().starts_with(&word_lower) {
-                    suggestions.push((func.name.to_string(), format!("{}({})", func.name, func.params), func.description.to_string()));
+                let func_name_lower = func.name.to_lowercase();
+                if func_name_lower.contains(&word_lower) {
+                    let priority = if func_name_lower.starts_with(&word_lower) { 0 } else { 1 };
+                    suggestions.push((priority, func.name.to_string(), format!("{}({})", func.name, func.params), func.description.to_string()));
                 }
             }
             
             // Match against user-defined functions
             for (name, func) in self.env.iter_functions() {
-                if name.to_lowercase().starts_with(&word_lower) {
-                    suggestions.push((name.clone(), format!("{}({})", name, func.params.join(", ")), "User-defined function".to_string()));
+                let name_lower = name.to_lowercase();
+                if name_lower.contains(&word_lower) {
+                    let priority = if name_lower.starts_with(&word_lower) { 0 } else { 1 };
+                    suggestions.push((priority, name.clone(), format!("{}({})", name, func.params.join(", ")), "User-defined function".to_string()));
                 }
             }
             
             // Match against variables
             for (name, value) in &self.user_vars {
-                if name.to_lowercase().starts_with(&word_lower) {
+                let name_lower = name.to_lowercase();
+                if name_lower.contains(&word_lower) {
+                    let priority = if name_lower.starts_with(&word_lower) { 0 } else { 1 };
                     let value_str = crate::core::formatter::format_value(value);
-                    suggestions.push((name.clone(), name.clone(), format!("Variable = {}", value_str)));
+                    suggestions.push((priority, name.clone(), name.clone(), format!("Variable = {}", value_str)));
                 }
             }
             
             // Match against constants
             for c in crate::core::constants::list() {
-                if c.name.to_lowercase().starts_with(&word_lower) {
-                    suggestions.push((c.name.to_string(), c.name.to_string(), format!("Constant = {} {}", c.value, c.units)));
+                let const_name_lower = c.name.to_lowercase();
+                if const_name_lower.contains(&word_lower) {
+                    let priority = if const_name_lower.starts_with(&word_lower) { 0 } else { 1 };
+                    suggestions.push((priority, c.name.to_string(), c.name.to_string(), format!("Constant = {} {}", c.value, c.units)));
                 }
             }
             
+            // Sort by priority first (starts_with comes before contains), then alphabetically
+            suggestions.sort_by(|a, b| {
+                match a.0.cmp(&b.0) {
+                    std::cmp::Ordering::Equal => a.1.cmp(&b.1),
+                    other => other,
+                }
+            });
+            
             // Convert to display strings
             let display_suggestions: Vec<String> = suggestions.into_iter()
-                .map(|(name, signature, description)| format!("{}|{}", signature, description))
+                .map(|(_priority, _name, signature, description)| format!("{}|{}", signature, description))
                 .collect();
             
             if !display_suggestions.is_empty() {
