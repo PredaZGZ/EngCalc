@@ -240,48 +240,42 @@ fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16)
 
     let param_index = app.signature_help_param_index.min(func_info.params_detail.len().saturating_sub(1));
 
-    // Build the signature line with highlighted parameter
-    let mut signature_line = format!("{}(", func_info.name);
-    
+    // Build the signature line
+    let mut signature = format!("{}(", func_info.name);
     for (i, param) in func_info.params_detail.iter().enumerate() {
         if i > 0 {
-            signature_line.push_str(", ");
+            signature.push_str(", ");
         }
-        signature_line.push_str(param.name);
+        if i == param_index {
+            signature.push_str(&format!("[{}]", param.name));
+        } else {
+            signature.push_str(param.name);
+        }
     }
-    signature_line.push(')');
+    signature.push(')');
 
-    // Build lines
-    let mut lines = Vec::new();
-    lines.push(Line::from(Span::styled(signature_line, Style::default().fg(Color::Rgb(255, 105, 180)))));
-    lines.push(Line::from(""));
+    // Get current parameter info
+    let current_param = func_info.params_detail.get(param_index)
+        .map(|p| format!("{}: {}", p.name, p.description))
+        .unwrap_or_default();
 
-    // Show current parameter description
-    if let Some(param) = func_info.params_detail.get(param_index) {
-        let param_text = format!("{}: {}", param.name, param.description);
-        lines.push(Line::from(vec![
-            Span::styled("Current: ", Style::default().fg(theme::ACCENT)),
-            Span::styled(param_text, Style::default().fg(Color::White)),
-        ]));
-    }
+    // Build simple text content
+    let content = format!(
+        "{}\n\n{}\nparam {}/{}",
+        signature,
+        current_param,
+        param_index + 1,
+        func_info.params_detail.len()
+    );
 
-    // Show total params count
-    lines.push(Line::from(vec![
-        Span::styled(
-            format!("param {}/{}", param_index + 1, func_info.params_detail.len()),
-            Style::default().fg(Color::DarkGray),
-        ),
-    ]));
-
-    // Calculate dimensions - use content width
-    let max_line_width = lines.iter().map(|l| l.to_string().len()).max().unwrap_or(20) as u16;
-    let width = (max_line_width + 4).min(60).max(30);
-    let height = lines.len() as u16 + 2;
+    // Calculate dimensions
+    let width = 50u16;
+    let height = 5u16;
 
     // Position popup below the cursor
     let area = f.area();
     let popup_x = cursor_x.min(area.width.saturating_sub(width));
-    let popup_y = if cursor_y + 1 + height > area.height {
+    let popup_y = if cursor_y + height > area.height {
         cursor_y.saturating_sub(height + 1)
     } else {
         cursor_y + 1
@@ -289,9 +283,10 @@ fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16)
 
     let popup_rect = Rect::new(popup_x, popup_y, width, height);
 
-    // Clear and render
+    // Clear area
     f.render_widget(Clear, popup_rect);
 
+    // Create block with content
     let block = Block::default()
         .title(" Help ")
         .title_style(theme::accent())
@@ -299,7 +294,7 @@ fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16)
         .border_style(theme::accent())
         .style(Style::default().bg(Color::Rgb(30, 30, 40)));
 
-    let para = Paragraph::new(Text::from(lines)).block(block);
+    let para = Paragraph::new(content).block(block);
     f.render_widget(para, popup_rect);
 }
 
