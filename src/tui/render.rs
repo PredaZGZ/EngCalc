@@ -115,7 +115,7 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     }
 }
 
-fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16) {
+fn render_autocomplete_popup(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u16) {
     let suggestions = &app.autocomplete_suggestions;
     let selected = app.autocomplete_selected;
 
@@ -123,8 +123,8 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
         return;
     }
 
-    // Build simple text lines
-    let mut content = String::new();
+    // Build lines with simple styling
+    let mut lines: Vec<Line> = Vec::new();
     let visible_count = 4usize;
     let total = suggestions.len();
     
@@ -141,67 +141,64 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: 
 
     for i in window_start..window_end {
         let suggestion = &suggestions[i];
-        // Split to get just the signature part before '|'
         let display = suggestion.split('|').next().unwrap_or(suggestion);
         
         if i == selected {
-            content.push_str(&format!("> {}\n", display));
+            lines.push(Line::from(vec![
+                Span::styled("▸ ", Style::default().fg(theme::ACCENT)),
+                Span::styled(display.to_string(), Style::default().fg(theme::ACCENT).add_modifier(Modifier::BOLD)),
+            ]));
         } else {
-            content.push_str(&format!("  {}\n", display));
+            lines.push(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::styled(display.to_string(), Style::default().fg(Color::Gray)),
+            ]));
         }
     }
 
-    if total > visible_count {
-        content.push_str(&format!("  ... {} more\n", total - window_end));
-    }
-
-    // Fixed dimensions
-    let popup_width = 35u16;
-    let popup_height = suggestions.len().min(visible_count) as u16 + 2;
-
-    // Position popup
-    let area = f.area();
-    let popup_x = cursor_x.min(area.width.saturating_sub(popup_width));
-    let popup_y = if cursor_y + popup_height > area.height {
-        cursor_y.saturating_sub(popup_height + 1)
-    } else {
-        cursor_y + 1
-    };
+    // Fixed popup at top-left for testing
+    let popup_width = 40u16;
+    let popup_height = lines.len() as u16 + 2;
+    let popup_x = 2;
+    let popup_y = 2;
 
     let popup_rect = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    // Clear and render
+    // Render with Clear first
     f.render_widget(Clear, popup_rect);
-
+    
     let block = Block::default()
+        .title(format!(" Suggestions ({}) ", total))
+        .title_style(Style::default().fg(theme::ACCENT))
         .borders(Borders::ALL)
-        .border_style(theme::accent())
-        .style(Style::default().bg(Color::Rgb(40, 40, 50)));
+        .border_style(Style::default().fg(theme::ACCENT))
+        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
 
-    let para = Paragraph::new(content).block(block);
+    let para = Paragraph::new(Text::from(lines))
+        .block(block)
+        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
+    
     f.render_widget(para, popup_rect);
 }
 
-fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16) {
+fn render_signature_help(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u16) {
     let func_name = match &app.signature_help_func {
         Some(name) => name,
         None => return,
     };
 
-    // Get function info
     let func_info = match crate::core::functions::get_function_info(func_name) {
         Some(info) => info,
         None => return,
     };
 
-    // Check if params_detail is empty
     if func_info.params_detail.is_empty() {
         return;
     }
 
     let param_index = app.signature_help_param_index.min(func_info.params_detail.len().saturating_sub(1));
 
-    // Build the signature line
+    // Build signature line
     let mut signature = format!("{}(", func_info.name);
     for (i, param) in func_info.params_detail.iter().enumerate() {
         if i > 0 {
@@ -215,47 +212,46 @@ fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16)
     }
     signature.push(')');
 
-    // Get current parameter info
+    // Get current parameter
     let current_param = func_info.params_detail.get(param_index)
         .map(|p| format!("{}: {}", p.name, p.description))
         .unwrap_or_default();
 
-    // Build simple text content
-    let content = format!(
-        "{}\n\n{}\nparam {}/{}",
-        signature,
-        current_param,
-        param_index + 1,
-        func_info.params_detail.len()
-    );
+    // Build lines
+    let lines = vec![
+        Line::from(Span::styled(signature, Style::default().fg(Color::Rgb(255, 105, 180)))),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Current: ", Style::default().fg(theme::ACCENT)),
+            Span::styled(current_param, Style::default().fg(Color::White)),
+        ]),
+        Line::from(Span::styled(
+            format!("param {}/{}", param_index + 1, func_info.params_detail.len()),
+            Style::default().fg(Color::DarkGray),
+        )),
+    ];
 
-    // Calculate dimensions
-    let width = 50u16;
-    let height = 5u16;
+    // Fixed popup position
+    let popup_width = 50u16;
+    let popup_height = lines.len() as u16 + 2;
+    let popup_x = 2;
+    let popup_y = 2;
 
-    // Position popup below the cursor
-    let area = f.area();
-    let popup_x = cursor_x.min(area.width.saturating_sub(width));
-    let popup_y = if cursor_y + height > area.height {
-        cursor_y.saturating_sub(height + 1)
-    } else {
-        cursor_y + 1
-    };
+    let popup_rect = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    let popup_rect = Rect::new(popup_x, popup_y, width, height);
-
-    // Clear area
     f.render_widget(Clear, popup_rect);
-
-    // Create block with content
+    
     let block = Block::default()
         .title(" Help ")
-        .title_style(theme::accent())
+        .title_style(Style::default().fg(theme::ACCENT))
         .borders(Borders::ALL)
-        .border_style(theme::accent())
-        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
+        .border_style(Style::default().fg(theme::ACCENT))
+        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
 
-    let para = Paragraph::new(content).block(block);
+    let para = Paragraph::new(Text::from(lines))
+        .block(block)
+        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
+    
     f.render_widget(para, popup_rect);
 }
 
