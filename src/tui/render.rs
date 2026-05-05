@@ -508,6 +508,8 @@ fn render_footer(f: &mut Frame, rects: &layout::AppLayout) {
         Span::styled("help  ", theme::DIM),
         Span::styled(" F2 ", Style::default().fg(theme::ACCENT)),
         Span::styled("consts  ", theme::DIM),
+        Span::styled(" F3 ", Style::default().fg(theme::ACCENT)),
+        Span::styled("reset  ", theme::DIM),
         Span::styled(" F4 ", Style::default().fg(theme::ACCENT)),
         Span::styled("funcs  ", theme::DIM),
         Span::styled(" Esc ", Style::default().fg(theme::ACCENT)),

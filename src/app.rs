@@ -92,13 +92,29 @@ impl App {
     pub fn update_signature_help(&mut self) {
         let content = self.input.content();
         let cursor = self.input.cursor_pos();
-
-        // Look backwards from cursor to find function name before an opening paren
         let before_cursor = &content[..cursor.min(content.len())];
 
-        // Find the last opening paren before cursor
-        if let Some(paren_pos) = before_cursor.rfind('(') {
-            // Extract what comes before the paren (should be function name)
+        // Scan backwards from cursor, tracking paren depth.
+        // We want the '(' that is NOT closed before the cursor (depth 0 -> -1).
+        let mut depth: i32 = 0;
+        let mut paren_pos: Option<usize> = None;
+
+        for (i, ch) in before_cursor.chars().rev().enumerate() {
+            let pos = before_cursor.len() - 1 - i;
+            match ch {
+                ')' | ']' | '}' => depth += 1,
+                '(' | '[' | '{' => {
+                    depth -= 1;
+                    if depth < 0 {
+                        paren_pos = Some(pos);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(paren_pos) = paren_pos {
             let before_paren = &content[..paren_pos];
 
             // Find the start of the function name
@@ -112,9 +128,20 @@ impl App {
             if !func_name.is_empty() {
                 // Check if this is a known function
                 if let Some(func_info) = crate::core::functions::get_function_info(func_name) {
-                    // Count which parameter we're on by counting commas after the paren
+                    // Count which parameter we're on by counting commas at depth 0
+                    // after the target paren, up to the cursor.
+                    // But we must skip commas inside nested parens.
                     let after_paren = &content[paren_pos + 1..cursor.min(content.len())];
-                    let param_index = after_paren.chars().filter(|&c| c == ',').count();
+                    let mut param_index = 0;
+                    let mut inner_depth: i32 = 0;
+                    for ch in after_paren.chars() {
+                        match ch {
+                            '(' | '[' | '{' => inner_depth += 1,
+                            ')' | ']' | '}' => inner_depth -= 1,
+                            ',' if inner_depth == 0 => param_index += 1,
+                            _ => {}
+                        }
+                    }
 
                     self.show_signature_help = true;
                     self.signature_help_func = Some(func_info.name.to_string());
@@ -310,6 +337,8 @@ impl App {
             }
             Action::Eval => {
                 self.show_signature_help = false;
+                self.show_autocomplete = false;
+                self.autocomplete_suggestions.clear();
                 self.eval_input();
             }
             Action::ClearScreen => {
