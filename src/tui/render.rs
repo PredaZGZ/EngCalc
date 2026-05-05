@@ -115,7 +115,7 @@ fn render_input(f: &mut Frame, rects: &layout::AppLayout, app: &App) {
     }
 }
 
-fn render_autocomplete_popup(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u16) {
+fn render_autocomplete_popup(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16) {
     let suggestions = &app.autocomplete_suggestions;
     let selected = app.autocomplete_selected;
 
@@ -156,11 +156,18 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y
         }
     }
 
-    // Fixed popup at top-left for testing
-    let popup_width = 40u16;
+    // Calculate dimensions
+    let max_width = suggestions.iter()
+        .map(|s| s.split('|').next().unwrap_or(s).len())
+        .max()
+        .unwrap_or(10);
+    let popup_width = (max_width as u16 + 8).min(40).max(20);
     let popup_height = lines.len() as u16 + 2;
-    let popup_x = 2;
-    let popup_y = 2;
+
+    // Position popup below cursor, ensuring it doesn't overlap input
+    let area = f.area();
+    let popup_x = cursor_x.min(area.width.saturating_sub(popup_width));
+    let popup_y = (cursor_y + 1).min(area.height.saturating_sub(popup_height));
 
     let popup_rect = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
@@ -172,16 +179,16 @@ fn render_autocomplete_popup(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y
         .title_style(Style::default().fg(theme::ACCENT))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(theme::ACCENT))
-        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
+        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
 
     let para = Paragraph::new(Text::from(lines))
         .block(block)
-        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
+        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
     
     f.render_widget(para, popup_rect);
 }
 
-fn render_signature_help(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u16) {
+fn render_signature_help(f: &mut Frame, app: &App, cursor_x: u16, cursor_y: u16) {
     let func_name = match &app.signature_help_func {
         Some(name) => name,
         None => return,
@@ -212,9 +219,17 @@ fn render_signature_help(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u1
     }
     signature.push(')');
 
-    // Get current parameter
+    // Get current parameter - truncate if too long
     let current_param = func_info.params_detail.get(param_index)
-        .map(|p| format!("{}: {}", p.name, p.description))
+        .map(|p| {
+            let desc = p.description;
+            let truncated = if desc.len() > 35 {
+                format!("{}...", &desc[..32])
+            } else {
+                desc.to_string()
+            };
+            format!("{}: {}", p.name, truncated)
+        })
         .unwrap_or_default();
 
     // Build lines
@@ -231,11 +246,14 @@ fn render_signature_help(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u1
         )),
     ];
 
-    // Fixed popup position
-    let popup_width = 50u16;
+    // Calculate dimensions
+    let popup_width = 45u16;
     let popup_height = lines.len() as u16 + 2;
-    let popup_x = 2;
-    let popup_y = 2;
+
+    // Position popup below cursor
+    let area = f.area();
+    let popup_x = cursor_x.min(area.width.saturating_sub(popup_width));
+    let popup_y = (cursor_y + 1).min(area.height.saturating_sub(popup_height));
 
     let popup_rect = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
@@ -246,11 +264,11 @@ fn render_signature_help(f: &mut Frame, app: &App, _cursor_x: u16, _cursor_y: u1
         .title_style(Style::default().fg(theme::ACCENT))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(theme::ACCENT))
-        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
+        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
 
     let para = Paragraph::new(Text::from(lines))
         .block(block)
-        .style(Style::default().bg(Color::Rgb(20, 20, 30)));
+        .style(Style::default().bg(Color::Rgb(30, 30, 40)));
     
     f.render_widget(para, popup_rect);
 }
