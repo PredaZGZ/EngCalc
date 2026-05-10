@@ -1,0 +1,114 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          cp target/release/engcalc dist/engcalc
+          tar -czf dist/engcalc-linux-x86_64.tar.gz -C dist engcalc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: dist/engcalc-linux-x86_64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Package binary
+        run: |
+          mkdir dist
+          copy target\release\engcalc.exe dist\engcalc.exe
+          Compress-Archive -Path dist\engcalc.exe -DestinationPath dist\engcalc-windows-x86_64.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: dist/engcalc-windows-x86_64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Build release binary (universal)
+        run: |
+          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          mkdir -p dist
+          lipo -create -output dist/engcalc \
+            target/x86_64-apple-darwin/release/engcalc \
+            target/aarch64-apple-darwin/release/engcalc
+
+      - name: Create .app bundle
+        run: |
+          APP_DIR="dist/EngCalc.app/Contents/MacOS"
+          mkdir -p "$APP_DIR"
+          cp dist/engcalc "$APP_DIR/"
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "EngCalc" -srcfolder dist/EngCalc.app -ov -format UDZO dist/engcalc-macos-universal.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: dist/engcalc-macos-universal.dmg
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          echo "tag=main-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" artifacts/* \
+            --title "Release ${{ steps.tag.outputs.tag }}" \
+            --generate-notes
