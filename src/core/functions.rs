@@ -182,6 +182,18 @@ pub fn list_functions() -> Vec<FunctionInfo> {
                 ParamInfo { name: "exp", description: "Exponent" },
             ],
         },
+        // Root function
+        FunctionInfo {
+            name: "root",
+            params: "x, n",
+            description: "N-th root of x (root(x, n) = x^(1/n))",
+            example: "root(27, 3) = 3 (cube root of 27)",
+            category: "Math",
+            params_detail: vec![
+                ParamInfo { name: "x", description: "The value to take the root of" },
+                ParamInfo { name: "n", description: "The root exponent (e.g., 2 for square root, 3 for cube root)" },
+            ],
+        },
         // Integration functions
         FunctionInfo {
             name: "trapz",
@@ -246,6 +258,23 @@ pub fn call(name: &str, args: &[f64]) -> Result<f64, FuncError> {
         "min" => binary(args, f64::min),
         "max" => binary(args, f64::max),
         "pow" => binary(args, f64::powf),
+        "root" => {
+            if args.len() != 2 {
+                return Err(FuncError::ArgCount {
+                    expected: 2,
+                    got: args.len(),
+                });
+            }
+            let base = args[0];
+            let n = args[1];
+            if n == 0.0 {
+                return Err(FuncError::InvalidArg("root exponent cannot be zero".to_string()));
+            }
+            if base < 0.0 && n.fract() != 0.0 {
+                return Err(FuncError::InvalidArg("cannot take even root of negative number".to_string()));
+            }
+            Ok(base.powf(1.0 / n))
+        }
         _ => Err(FuncError::Unknown),
     }
 }
@@ -291,6 +320,7 @@ pub fn is_function(name: &str) -> bool {
             | "min"
             | "max"
             | "pow"
+            | "root"
             | "trapz"
             | "simpson"
             | "rkf45"
@@ -300,7 +330,7 @@ pub fn is_function(name: &str) -> bool {
 pub fn function_names() -> Vec<&'static str> {
     vec![
         "sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "log10", "exp", "abs",
-        "floor", "ceil", "round", "min", "max", "pow", "trapz", "simpson", "rkf45",
+        "floor", "ceil", "round", "min", "max", "pow", "root", "trapz", "simpson", "rkf45",
     ]
 }
 
